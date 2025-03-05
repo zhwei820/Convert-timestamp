@@ -5,7 +5,7 @@
     <title>时间戳转换</title>
     <style>
       body {
-        width: 400px;
+        width: 200px;
         padding: 20px;
         font-family: Arial, sans-serif;
       }
@@ -41,7 +41,7 @@
         margin-top: 10px;
       }
       button {
-        padding: 8px 15px;
+        padding: 2px 4px;
         border: none;
         border-radius: 4px;
         background-color: #4a90e2;
@@ -56,20 +56,20 @@
   </head>
   <body>
     <div class="container">
-      <div class="input-group">
-        <label>时间戳 / 格式化时间:</label>
-        <input type="text" id="input" placeholder="输入时间戳或格式化时间..." />
-      </div>
-      <div class="input-group">
-        <label>转换结果:</label>
-        <input type="text" id="output" readonly />
-      </div>
       <div class="button-group">
         <button id="nowButton">当前时间</button>
         <span
           id="timestampUnit"
           style="font-size: 20px; color: #5e44d1; margin-left: 8px"
         ></span>
+      </div>
+      <div class="input-group">
+        <label>输入:</label>
+        <input type="text" id="input" placeholder="输入时间戳或格式化时间..." />
+      </div>
+      <div class="input-group">
+        <label>结果:</label>
+        <input type="text" id="output" readonly />
       </div>
     </div>
     <script src="utils.js"></script>
