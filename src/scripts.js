@@ -4,6 +4,9 @@ document.addEventListener("DOMContentLoaded", function () {
   const nowButton = document.getElementById("nowButton");
   const copyButton = document.getElementById("copyButton");
 
+  // Set focus to input field when popup opens
+  input.focus();
+
   // Initialize with current timestamp if localStorage has no type
   if (!localStorage.timestampJudgeType) {
     localStorage.timestampJudgeType = "3";
