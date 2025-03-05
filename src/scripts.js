@@ -46,11 +46,8 @@ document.addEventListener("DOMContentLoaded", function () {
   // Get current timestamp
   nowButton.onclick = function () {
     let now = Date.now();
-    input.value = now;
-    let result = convert(now.toString(), localStorage.timestampJudgeType);
-    output.value = result.time;
-    let timestampUnit = document.getElementById("timestampUnit");
-    timestampUnit.textContent = now.toString().length === 10 ? "S" : "MS";
+    input.value = int(now);
+    updateOutput(input.value);
   };
 
   // // Copy result to clipboard
