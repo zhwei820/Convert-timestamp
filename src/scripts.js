@@ -46,7 +46,9 @@ document.addEventListener("DOMContentLoaded", function () {
   // Get current timestamp
   nowButton.onclick = function () {
     let now = Date.now();
-    input.value = int(now);
+    console.log("int(now)", 0 + now);
+
+    input.value = 0 + now;
     updateOutput(input.value);
   };
 
