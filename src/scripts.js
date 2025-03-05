@@ -9,6 +9,12 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.timestampJudgeType = '3';
     }
 
+    // Restore last input and output values
+    if (localStorage.lastInput) {
+        input.value = localStorage.lastInput;
+        output.value = localStorage.lastOutput || '';
+    }
+
     function updateOutput(value) {
         if (!value) {
             output.value = '';
@@ -17,6 +23,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let result = convert(value, localStorage.timestampJudgeType);
         output.value = result;
+
+        // Save current input and output
+        localStorage.lastInput = value;
+        localStorage.lastOutput = result;
     }
 
     // Handle input changes

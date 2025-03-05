@@ -38,17 +38,7 @@ function getTimeString(timestamp, type) {
       : milliseconds;
 
   return (
-    year +
-    "-" +
-    month +
-    "-" +
-    day +
-    "- " +
-    hours +
-    ":" +
-    minutes +
-    ":" +
-    seconds
+    year + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds
   );
 }
 
