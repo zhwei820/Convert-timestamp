@@ -13,6 +13,8 @@ document.addEventListener("DOMContentLoaded", function () {
   if (localStorage.lastInput) {
     input.value = localStorage.lastInput;
     output.value = localStorage.lastOutput || "";
+
+    updateOutput(input.value);
   }
 
   function updateOutput(value) {
@@ -27,6 +29,13 @@ document.addEventListener("DOMContentLoaded", function () {
     // Save current input and output
     localStorage.lastInput = value;
     localStorage.lastOutput = result;
+
+    var t = value;
+    if (!isNaN(result)) {
+      t = result;
+    }
+    let timestampUnit = document.getElementById("timestampUnit");
+    timestampUnit.textContent = t.length === 10 ? "S" : "MS";
   }
 
   // Handle input changes
@@ -44,13 +53,13 @@ document.addEventListener("DOMContentLoaded", function () {
     timestampUnit.textContent = now.toString().length === 10 ? "S" : "MS";
   };
 
-  // Copy result to clipboard
-  copyButton.onclick = function () {
-    if (output.value) {
-      output.select();
-      document.execCommand("copy");
-      // Deselect the text
-      window.getSelection().removeAllRanges();
-    }
-  };
+  // // Copy result to clipboard
+  // copyButton.onclick = function () {
+  //   if (output.value) {
+  //     output.select();
+  //     document.execCommand("copy");
+  //     // Deselect the text
+  //     window.getSelection().removeAllRanges();
+  //   }
+  // };
 });
