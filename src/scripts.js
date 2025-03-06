@@ -39,6 +39,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     let timestampUnit = document.getElementById("timestampUnit");
     timestampUnit.textContent = t.length === 10 ? "S" : "MS";
+
+    // Update UTC0 time
+    let utc0Time = document.getElementById("utc0Time");
+    let timestamp = parseInt(t);
+    if (!isNaN(timestamp)) {
+      if (t.length === 10) {
+        timestamp *= 1000;
+      }
+      utc0Time.value = getTimeString(timestamp, "", true);
+    } else {
+      utc0Time.value = "";
+    }
   }
 
   // Handle input changes

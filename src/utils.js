@@ -2,9 +2,10 @@
  * 时间戳转字符串
  * @param timestamp 10/13 位时间戳
  * @param type 转换类型
+ * @param useUTC 是否使用 UTC0 时间
  * @returns {string} 可视化时间字符串
  */
-function getTimeString(timestamp, type) {
+function getTimeString(timestamp, type, useUTC = false) {
   switch (type) {
     case "1":
       timestamp *= 1000;
@@ -20,14 +21,17 @@ function getTimeString(timestamp, type) {
   }
 
   let date = new Date(timestamp);
-  let year = date.getFullYear();
-  let month = date.getMonth() + 1;
-  let day = date.getDate();
-  let hours = date.getHours();
-  let minutes = date.getMinutes();
-  let seconds = date.getSeconds();
-  let milliseconds = date.getMilliseconds();
+  let year = useUTC ? date.getUTCFullYear() : date.getFullYear();
+  let month = (useUTC ? date.getUTCMonth() : date.getMonth()) + 1;
+  let day = useUTC ? date.getUTCDate() : date.getDate();
+  let hours = useUTC ? date.getUTCHours() : date.getHours();
+  let minutes = useUTC ? date.getUTCMinutes() : date.getMinutes();
+  let seconds = useUTC ? date.getUTCSeconds() : date.getSeconds();
+  let milliseconds = useUTC ? date.getUTCMilliseconds() : date.getMilliseconds();
 
+  month = month < 10 ? "0" + month : month;
+  day = day < 10 ? "0" + day : day;
+  hours = hours < 10 ? "0" + hours : hours;
   minutes = minutes < 10 ? "0" + minutes : minutes;
   seconds = seconds < 10 ? "0" + seconds : seconds;
   milliseconds =
