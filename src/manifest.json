@@ -2,29 +2,19 @@
   "browser_action": {
     "default_popup": "popup.html"
   },
-  "description": "时间戳转换小工具。右键菜单显示转化，工具页时间戳转化",
+  "description": "时间戳转换小工具",
   "manifest_version": 2,
   "name": "时间戳转化",
   "content_scripts": [
     {
-      "matches": [
-        "*://*/*"
-      ],
-      "js": [
-        "content.js"
-      ]
+      "matches": ["*://*/*"],
+      "js": ["content.js"]
     }
   ],
   "options_page": "popup.html",
   "version": "1.0.3",
-  "permissions": [
-    "clipboardRead",
-    "contextMenus"
-  ],
+  "permissions": ["clipboardRead", "contextMenus"],
   "background": {
-    "scripts": [
-      "background.js",
-      "utils.js"
-    ]
+    "scripts": ["background.js", "utils.js"]
   }
 }
