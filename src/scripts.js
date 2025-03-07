@@ -2,8 +2,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const input = document.getElementById("input");
   const output = document.getElementById("output");
   const nowButton = document.getElementById("nowButton");
-  const copyButton = document.getElementById("btn001");
-  copyButton.onclick = focusAndSelect;
+  // const copyButton = document.getElementById("btn001");
+  // copyButton.onclick = focusAndSelect;
 
   // Set focus to input field and select content when popup opens
 
