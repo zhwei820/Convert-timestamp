@@ -2,11 +2,10 @@ document.addEventListener("DOMContentLoaded", function () {
   const input = document.getElementById("input");
   const output = document.getElementById("output");
   const nowButton = document.getElementById("nowButton");
-  // const copyButton = document.getElementById("copyButton");
+  const copyButton = document.getElementById("btn001");
+  copyButton.onclick = focusAndSelect;
 
   // Set focus to input field and select content when popup opens
-  input.focus();
-  input.select();
 
   // Initialize with current timestamp if localStorage has no type
   if (!localStorage.timestampJudgeType) {
@@ -68,13 +67,16 @@ document.addEventListener("DOMContentLoaded", function () {
     updateOutput(input.value);
   };
 
-  // // Copy result to clipboard
-  // copyButton.onclick = function () {
-  //   if (output.value) {
-  //     output.select();
-  //     document.execCommand("copy");
-  //     // Deselect the text
-  //     window.getSelection().removeAllRanges();
-  //   }
-  // };
+  focusAndSelect();
 });
+
+function focusAndSelect() {
+  // 获取输入框元素
+  const input = document.getElementById("input");
+  console.log("input", input);
+
+  // 让输入框获得焦点
+  input.focus();
+  // 全选输入框中的内容
+  input.select();
+}
