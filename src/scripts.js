@@ -61,6 +61,12 @@ document.addEventListener("DOMContentLoaded", function () {
   // Get current timestamp
   nowButton.onclick = function () {
     let now = Date.now();
+    let date = new Date(now);
+    // 将该 Date 对象的毫秒部分设置为 0
+    date.setMilliseconds(0);
+    // 从更新后的 Date 对象中获取新的时间戳
+    now = date.getTime();
+
     console.log("int(now)", 0 + now);
 
     input.value = 0 + now;
