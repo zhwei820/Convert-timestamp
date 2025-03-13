@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const input = document.getElementById("input");
   const output = document.getElementById("output");
   const nowButton = document.getElementById("nowButton");
+  const timestampUnit = document.getElementById("timestampUnit");
   // const copyButton = document.getElementById("btn001");
   // copyButton.onclick = focusAndSelect;
 
@@ -10,6 +11,11 @@ document.addEventListener("DOMContentLoaded", function () {
   // Initialize with current timestamp if localStorage has no type
   if (!localStorage.timestampJudgeType) {
     localStorage.timestampJudgeType = "3";
+  }
+
+  // Initialize timestamp unit preference
+  if (!localStorage.timestampUnit) {
+    localStorage.timestampUnit = "MS";
   }
 
   // Restore last input and output values
@@ -37,8 +43,16 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!isNaN(result)) {
       t = result;
     }
-    let timestampUnit = document.getElementById("timestampUnit");
-    timestampUnit.textContent = t.length === 10 ? "S" : "MS";
+
+    // Update timestamp unit display
+    let isSeconds = localStorage.timestampUnit === "s";
+    if (isSeconds && t.length === 13) {
+      t = Math.floor(parseInt(t) / 1000).toString();
+    } else if (!isSeconds && t.length === 10) {
+      t = (parseInt(t) * 1000).toString();
+    }
+    input.value = t;
+    timestampUnit.textContent = isSeconds ? "S" : "MS";
 
     // Update UTC0 time
     let utc0Time = document.getElementById("utc0Time");
@@ -67,9 +81,17 @@ document.addEventListener("DOMContentLoaded", function () {
     // 从更新后的 Date 对象中获取新的时间戳
     now = date.getTime();
 
-    console.log("int(now)", 0 + now);
+    if (localStorage.timestampUnit === "s") {
+      now = Math.floor(now / 1000);
+    }
 
-    input.value = 0 + now;
+    input.value = now;
+    updateOutput(input.value);
+  };
+
+  // Toggle timestamp unit
+  timestampUnit.onclick = function () {
+    localStorage.timestampUnit = localStorage.timestampUnit === "ms" ? "s" : "ms";
     updateOutput(input.value);
   };
 
