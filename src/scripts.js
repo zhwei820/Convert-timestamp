@@ -45,13 +45,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Update timestamp unit display
-    let isSeconds = localStorage.timestampUnit === "s";
+    let isSeconds = localStorage.timestampUnit === "S";
     if (isSeconds && t.length === 13) {
       t = Math.floor(parseInt(t) / 1000).toString();
     } else if (!isSeconds && t.length === 10) {
       t = (parseInt(t) * 1000).toString();
     }
-    input.value = t;
+    if (!isNaN(result)) {
+      output.value = t;
+    } else {
+      input.value = t;
+    }
+
     timestampUnit.textContent = isSeconds ? "S" : "MS";
 
     // Update UTC0 time
@@ -81,7 +86,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // 从更新后的 Date 对象中获取新的时间戳
     now = date.getTime();
 
-    if (localStorage.timestampUnit === "s") {
+    if (localStorage.timestampUnit === "S") {
       now = Math.floor(now / 1000);
     }
 
@@ -91,7 +96,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Toggle timestamp unit
   timestampUnit.onclick = function () {
-    localStorage.timestampUnit = localStorage.timestampUnit === "ms" ? "s" : "ms";
+    localStorage.timestampUnit =
+      localStorage.timestampUnit === "MS" ? "S" : "MS";
     updateOutput(input.value);
   };
 
