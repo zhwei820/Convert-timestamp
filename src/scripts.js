@@ -25,6 +25,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     updateOutput(input.value);
   }
+  function isStringNumber(str) {
+    return !isNaN(Number(str)) && isFinite(Number(str));
+  }
 
   function updateOutput(value) {
     if (!value) {
@@ -39,9 +42,10 @@ document.addEventListener("DOMContentLoaded", function () {
     localStorage.lastInput = value;
     localStorage.lastOutput = result;
 
-    var t = value;
-    if (!isNaN(result)) {
-      t = result;
+    var t = output.value;
+    if (!isStringNumber(output.value)) {
+      //is number
+      t = input.value;
     }
 
     // Update timestamp unit display
@@ -51,10 +55,11 @@ document.addEventListener("DOMContentLoaded", function () {
     } else if (!isSeconds && t.length === 10) {
       t = (parseInt(t) * 1000).toString();
     }
-    if (!isNaN(result)) {
-      output.value = t;
-    } else {
+    if (!isStringNumber(output.value)) {
+      //is number
       input.value = t;
+    } else {
+      output.value = t;
     }
 
     timestampUnit.textContent = isSeconds ? "S" : "MS";
