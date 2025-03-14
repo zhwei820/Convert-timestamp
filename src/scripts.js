@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const input = document.getElementById("input");
   const output = document.getElementById("output");
   const nowButton = document.getElementById("nowButton");
+  const todayButton = document.getElementById("todayButton");
   const timestampUnit = document.getElementById("timestampUnit");
   // const copyButton = document.getElementById("btn001");
   // copyButton.onclick = focusAndSelect;
@@ -89,6 +90,23 @@ document.addEventListener("DOMContentLoaded", function () {
     // 将该 Date 对象的毫秒部分设置为 0
     date.setMilliseconds(0);
     // 从更新后的 Date 对象中获取新的时间戳
+    now = date.getTime();
+
+    if (localStorage.timestampUnit === "S") {
+      now = Math.floor(now / 1000);
+    }
+
+    input.value = now;
+    updateOutput(input.value);
+  };
+
+  // Get today timestamp
+  todayButton.onclick = function () {
+    let now = Date.now();
+    let date = new Date(now);
+    // Set time to start of day (00:00:00)
+    date.setHours(0, 0, 0, 0);
+    // Get timestamp for start of day
     now = date.getTime();
 
     if (localStorage.timestampUnit === "S") {
