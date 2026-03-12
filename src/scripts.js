@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const nowButton = document.getElementById("nowButton");
   const todayButton = document.getElementById("todayButton");
   const todayButton8 = document.getElementById("todayButton8");
+  const add8hButton = document.getElementById("add8hButton");
   const timestampUnit = document.getElementById("timestampUnit");
   // const copyButton = document.getElementById("btn001");
   // copyButton.onclick = focusAndSelect;
@@ -132,6 +133,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     input.value = now;
+    updateOutput(input.value);
+  };
+
+  // Add 8 hours to current input timestamp
+  add8hButton.onclick = function () {
+    let val = input.value.trim();
+    if (!val) return;
+    let ts = parseInt(val);
+    if (isNaN(ts)) return;
+    const eightHours =
+      localStorage.timestampUnit === "S" ? 8 * 3600 : 8 * 3600 * 1000;
+    input.value = (ts + eightHours).toString();
     updateOutput(input.value);
   };
 
