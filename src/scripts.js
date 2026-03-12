@@ -140,11 +140,27 @@ document.addEventListener("DOMContentLoaded", function () {
   add8hButton.onclick = function () {
     let val = input.value.trim();
     if (!val) return;
-    let ts = parseInt(val);
-    if (isNaN(ts)) return;
-    const eightHours =
-      localStorage.timestampUnit === "S" ? 8 * 3600 : 8 * 3600 * 1000;
-    input.value = (ts + eightHours).toString();
+
+    let tsMs;
+    const isNumeric = val.indexOf(".") === -1 && !isNaN(val);
+    if (isNumeric) {
+      tsMs = parseInt(val);
+      if (tsMs.toString().length === 10) tsMs *= 1000;
+    } else {
+      tsMs = formatTimeString(val);
+    }
+    if (isNaN(tsMs)) return;
+
+    tsMs += 8 * 3600 * 1000;
+
+    if (isNumeric) {
+      input.value =
+        localStorage.timestampUnit === "S"
+          ? Math.floor(tsMs / 1000).toString()
+          : tsMs.toString();
+    } else {
+      input.value = getTimeString(tsMs, "2");
+    }
     updateOutput(input.value);
   };
 
