@@ -100,6 +100,15 @@ function convert(s, type) {
     return "";
   }
 
+  let dMatch = /^(\d{8})[dD]$/.exec(s);
+  if (dMatch) {
+    let ymd = dMatch[1];
+    let year = parseInt(ymd.slice(0, 4));
+    let month = parseInt(ymd.slice(4, 6));
+    let day = parseInt(ymd.slice(6, 8));
+    return new Date(year, month - 1, day).getTime();
+  }
+
   if (s.indexOf(".") === -1 && !isNaN(s)) {
     return getTimeString(parseInt(s), type);
   } else {

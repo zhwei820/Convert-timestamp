@@ -5,6 +5,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const todayButton = document.getElementById("todayButton");
   const todayButton8 = document.getElementById("todayButton8");
   const add8hButton = document.getElementById("add8hButton");
+  const addDayButton = document.getElementById("addDayButton");
+  const subDayButton = document.getElementById("subDayButton");
   const timestampUnit = document.getElementById("timestampUnit");
   // const copyButton = document.getElementById("btn001");
   // copyButton.onclick = focusAndSelect;
@@ -136,8 +138,7 @@ document.addEventListener("DOMContentLoaded", function () {
     updateOutput(input.value);
   };
 
-  // Add 8 hours to current input timestamp
-  add8hButton.onclick = function () {
+  function shiftTime(deltaMs) {
     let val = input.value.trim();
     if (!val) return;
 
@@ -151,7 +152,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     if (isNaN(tsMs)) return;
 
-    tsMs += 8 * 3600 * 1000;
+    tsMs += deltaMs;
 
     if (isNumeric) {
       input.value =
@@ -162,6 +163,21 @@ document.addEventListener("DOMContentLoaded", function () {
       input.value = getTimeString(tsMs, "2");
     }
     updateOutput(input.value);
+  }
+
+  // Add 8 hours to current input timestamp
+  add8hButton.onclick = function () {
+    shiftTime(8 * 3600 * 1000);
+  };
+
+  // Add 1 day to current input timestamp
+  addDayButton.onclick = function () {
+    shiftTime(24 * 3600 * 1000);
+  };
+
+  // Subtract 1 day from current input timestamp
+  subDayButton.onclick = function () {
+    shiftTime(-24 * 3600 * 1000);
   };
 
   // Toggle timestamp unit
