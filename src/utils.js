@@ -106,7 +106,7 @@ function convert(s, type) {
     let year = parseInt(ymd.slice(0, 4));
     let month = parseInt(ymd.slice(4, 6));
     let day = parseInt(ymd.slice(6, 8));
-    return new Date(year, month - 1, day).getTime();
+    return Date.UTC(year, month - 1, day);
   }
 
   if (s.indexOf(".") === -1 && !isNaN(s)) {
