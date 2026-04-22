@@ -8,8 +8,19 @@ document.addEventListener("DOMContentLoaded", function () {
   const addDayButton = document.getElementById("addDayButton");
   const subDayButton = document.getElementById("subDayButton");
   const timestampUnit = document.getElementById("timestampUnit");
+  const autoCopyCheckbox = document.getElementById("autoCopyOnSelect");
   // const copyButton = document.getElementById("btn001");
   // copyButton.onclick = focusAndSelect;
+
+  // 选中网页文字自动复制到剪贴板：默认开启；通过 chrome.storage 与 content script 同步
+  if (chrome && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(["autoCopyOnSelect"], function (result) {
+      autoCopyCheckbox.checked = result.autoCopyOnSelect !== false;
+    });
+    autoCopyCheckbox.addEventListener("change", function () {
+      chrome.storage.local.set({ autoCopyOnSelect: autoCopyCheckbox.checked });
+    });
+  }
 
   // Set focus to input field and select content when popup opens
 

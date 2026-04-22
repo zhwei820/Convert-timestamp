@@ -1,15 +1,24 @@
 {
   "manifest_version": 3,
   "name": "时间戳转化",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "时间戳转换小工具",
   "action": {
     "default_popup": "src/popup.html"
   },
+  "permissions": [
+    "clipboardWrite",
+    "storage"
+  ],
   "content_scripts": [
     {
-      "matches": ["*://*/*"],
-      "js": ["src/content.js"]
+      "matches": [
+        "*://*/*"
+      ],
+      "js": [
+        "src/content.js"
+      ],
+      "all_frames": true
     }
   ],
   "options_page": "src/popup.html",
