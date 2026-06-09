@@ -46,6 +46,9 @@ console.log('Selected text:', text, 'Auto-copy enabled:', autoCopyEnabled);
     if (!text || !autoCopyEnabled) {
         return;
     }
+    if (!location.href.includes("ninedata")) {
+        return;
+    }
 
     copySelectionToClipboard(text);
 });
