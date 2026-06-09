@@ -8,7 +8,9 @@
   },
   "permissions": [
     "clipboardWrite",
-    "storage"
+    "storage",
+    "notifications",
+    "contextMenus"
   ],
   "content_scripts": [
     {
@@ -19,6 +21,16 @@
         "src/content.js"
       ],
       "all_frames": true
+    },
+    {
+      "matches": [
+        "*://gitlab.matrixport.com/*"
+      ],
+      "js": [
+        "src/gitlab-pipeline-monitor.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
   "options_page": "src/popup.html",
