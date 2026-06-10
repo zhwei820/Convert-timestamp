@@ -5,6 +5,7 @@
   "description": "时间戳转换小工具",
   "manifest_version": 2,
   "name": "时间戳转化",
+  "permissions": ["storage"],
   "content_scripts": [
     {
       "matches": ["*://*/*"],

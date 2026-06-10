@@ -15,7 +15,11 @@ document.addEventListener("DOMContentLoaded", function () {
   // 选中网页文字自动复制到剪贴板：默认开启；通过 chrome.storage 与 content script 同步
   if (chrome && chrome.storage && chrome.storage.local) {
     chrome.storage.local.get(["autoCopyOnSelect"], function (result) {
-      autoCopyCheckbox.checked = result.autoCopyOnSelect !== false;
+      const enabled = result.autoCopyOnSelect !== false;
+      autoCopyCheckbox.checked = enabled;
+      if (result.autoCopyOnSelect === undefined) {
+        chrome.storage.local.set({ autoCopyOnSelect: enabled });
+      }
     });
     autoCopyCheckbox.addEventListener("change", function () {
       chrome.storage.local.set({ autoCopyOnSelect: autoCopyCheckbox.checked });
