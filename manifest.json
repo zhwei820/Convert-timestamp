@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "时间戳转化",
   "version": "1.1.0",
-  "description": "时间戳转换小工具",
+  "description": "时间戳与日期双向转换工具，支持弹窗输入、选中文字右键菜单转换、自动复制结果，并内置 GitLab Pipeline 状态监控通知",
   "action": {
     "default_popup": "src/popup.html"
   },
