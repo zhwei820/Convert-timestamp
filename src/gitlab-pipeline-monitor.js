@@ -12,6 +12,12 @@
 (function () {
     "use strict";
 
+    // Chrome match pattern 不支持 host 中间通配（如 gitlab.*.com），
+    // 因此 manifest 用 *://*/* 放行，再在这里按主机名收敛到 gitlab.<x>.com。
+    if (!/^gitlab\.[^.]+\.com$/i.test(location.hostname)) {
+        return;
+    }
+
     console.log("[gitlab-pipeline-monitor] script injected at", location.href);
 
     if (window.__gitlabPipelineMonitorLoaded) {

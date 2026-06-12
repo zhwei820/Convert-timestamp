@@ -32,7 +32,7 @@
         if (host === "github.com" && /\/raw\//.test(path)) {
             return true;
         }
-        if (host === "gitlab.*.com" && /\/-\/raw\//.test(path)) {
+        if (/^gitlab\.[^.]+\.com$/i.test(host) && /\/-\/raw\//.test(path)) {
             return true;
         }
         return false;

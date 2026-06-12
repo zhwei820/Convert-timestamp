@@ -24,7 +24,7 @@
     },
     {
       "matches": [
-        "*://gitlab.*.com/*"
+        "*://*/*"
       ],
       "js": [
         "src/gitlab-pipeline-monitor.js"
@@ -34,9 +34,7 @@
     },
     {
       "matches": [
-        "*://gitlab.*.com/*/-/raw/*",
-        "*://github.com/*/raw/*",
-        "*://raw.githubusercontent.com/*"
+        "*://*/*"
       ],
       "js": [
         "src/raw-html-preview.js"
