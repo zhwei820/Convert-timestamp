@@ -1,7 +1,7 @@
 /**
  * GitLab pipeline 监听器：DOM 模式
  *
- * 通过 manifest 的 content_scripts.matches 限定到 gitlab.matrixport.com。
+ * 通过 manifest 的 content_scripts.matches 限定到 gitlab.*.com。
  * 在页面上找所有 pipeline 状态元素（兼容 ci-status-icon-* 旧 class 与
  * data-testid="status_<state>_borderless-icon" 新 SVG），通过 MutationObserver
  * + 定时兜底扫描检测从 running/pending 到终态（success/failed/...）的跳变，

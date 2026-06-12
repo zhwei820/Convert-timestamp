@@ -24,10 +24,22 @@
     },
     {
       "matches": [
-        "*://gitlab.matrixport.com/*"
+        "*://gitlab.*.com/*"
       ],
       "js": [
         "src/gitlab-pipeline-monitor.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "*://gitlab.*.com/*/-/raw/*",
+        "*://github.com/*/raw/*",
+        "*://raw.githubusercontent.com/*"
+      ],
+      "js": [
+        "src/raw-html-preview.js"
       ],
       "run_at": "document_idle",
       "all_frames": false
