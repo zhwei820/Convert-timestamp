@@ -1,5 +1,7 @@
 console.log("[background] service worker booting");
 
+importScripts("utils.js");
+
 let titleId = "convert";
 
 try {
@@ -44,9 +46,12 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         return;
     }
     try {
-        let convertStr = convert(message, localStorage.timestampJudgeType) + " ";
-        chrome.contextMenus.update(titleId, {
-            "title": convertStr,
+        chrome.storage.local.get(["timestampJudgeType"], function (res) {
+            const judgeType = (res && res.timestampJudgeType) || "3";
+            const convertStr = convert(message, judgeType) + " ";
+            chrome.contextMenus.update(titleId, {
+                "title": convertStr,
+            });
         });
     } catch (e) {
         console.error("[background] context menu update threw:", e);
