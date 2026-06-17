@@ -119,14 +119,40 @@ document.addEventListener("DOMContentLoaded", function () {
     updateOutput(input.value);
   };
 
-  // Get today timestamp
+  // Get 00:00:00 UTC+8 timestamp of the day implied by the current input
   todayButton.onclick = function () {
-    let now = Date.now();
-    let date = new Date(now);
-    // Set time to start of day (00:00:00)
-    date.setHours(0, 0, 0, 0);
-    // Get timestamp for start of day
-    now = date.getTime();
+    let val = input.value.trim();
+    let year, month, day;
+
+    if (val) {
+      const isNumeric = val.indexOf(".") === -1 && !isNaN(val);
+      if (isNumeric) {
+        let tsMs = parseInt(val);
+        if (tsMs.toString().length === 10) tsMs *= 1000;
+        // Read calendar components in UTC+8 by shifting +8h then using UTC getters
+        let shifted = new Date(tsMs + 8 * 3600 * 1000);
+        year = shifted.getUTCFullYear();
+        month = shifted.getUTCMonth();
+        day = shifted.getUTCDate();
+      } else {
+        let parts = val
+          .replace(/[^\d]/g, "-")
+          .replace(/-+/g, "-")
+          .split("-")
+          .filter((p) => p !== "");
+        year = parseInt(parts[0]) || 1970;
+        month = (parseInt(parts[1]) || 1) - 1;
+        day = parseInt(parts[2]) || 1;
+      }
+    } else {
+      let nowShifted = new Date(Date.now() + 8 * 3600 * 1000);
+      year = nowShifted.getUTCFullYear();
+      month = nowShifted.getUTCMonth();
+      day = nowShifted.getUTCDate();
+    }
+
+    // 00:00:00 UTC+8 = that day's UTC -8 hours
+    let now = Date.UTC(year, month, day, -8, 0, 0, 0);
 
     if (localStorage.timestampUnit === "S") {
       now = Math.floor(now / 1000);
