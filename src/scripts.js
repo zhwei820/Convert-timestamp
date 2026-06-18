@@ -151,8 +151,8 @@ document.addEventListener("DOMContentLoaded", function () {
       day = nowShifted.getUTCDate();
     }
 
-    // 00:00:00 UTC+8 = that day's UTC -8 hours
-    let now = Date.UTC(year, month, day, -8, 0, 0, 0);
+    // 08:00:00 UTC+8 = that day's UTC 00:00:00
+    let now = Date.UTC(year, month, day, 0, 0, 0, 0);
 
     if (localStorage.timestampUnit === "S") {
       now = Math.floor(now / 1000);
