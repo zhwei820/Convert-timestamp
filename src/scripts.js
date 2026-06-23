@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const input = document.getElementById("input");
   const output = document.getElementById("output");
   const nowButton = document.getElementById("nowButton");
-  const dayStart = document.getElementById("dayStart");
+  const dayStart = document.getElementById("dayStart8");
   const todayButton8 = document.getElementById("todayButton8");
   const add8hButton = document.getElementById("add8hButton");
   const addDayButton = document.getElementById("addDayButton");
