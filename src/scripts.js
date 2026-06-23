@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const input = document.getElementById("input");
   const output = document.getElementById("output");
   const nowButton = document.getElementById("nowButton");
-  const todayButton = document.getElementById("todayButton");
+  const dayStart = document.getElementById("dayStart");
   const todayButton8 = document.getElementById("todayButton8");
   const add8hButton = document.getElementById("add8hButton");
   const addDayButton = document.getElementById("addDayButton");
@@ -120,7 +120,7 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   // Get 08:00:00 UTC+8 timestamp of the day implied by the current input
-  todayButton.onclick = function () {
+  dayStart.onclick = function () {
     let val = input.value.trim();
     let year, month, day;
 
@@ -162,37 +162,12 @@ document.addEventListener("DOMContentLoaded", function () {
     updateOutput(input.value);
   };
 
-  // Get 08:00:00 UTC+8 timestamp of the day implied by the current input
+  // Get 08:00:00 UTC+8 timestamp of the current day
   todayButton8.onclick = function () {
-    let val = input.value.trim();
-    let year, month, day;
-
-    if (val) {
-      const isNumeric = val.indexOf(".") === -1 && !isNaN(val);
-      if (isNumeric) {
-        let tsMs = parseInt(val);
-        if (tsMs.toString().length === 10) tsMs *= 1000;
-        // Read calendar components in UTC+8 by shifting +8h then using UTC getters
-        let shifted = new Date(tsMs + 8 * 3600 * 1000);
-        year = shifted.getUTCFullYear();
-        month = shifted.getUTCMonth();
-        day = shifted.getUTCDate();
-      } else {
-        let parts = val
-          .replace(/[^\d]/g, "-")
-          .replace(/-+/g, "-")
-          .split("-")
-          .filter((p) => p !== "");
-        year = parseInt(parts[0]) || 1970;
-        month = (parseInt(parts[1]) || 1) - 1;
-        day = parseInt(parts[2]) || 1;
-      }
-    } else {
-      let nowShifted = new Date(Date.now() + 8 * 3600 * 1000);
-      year = nowShifted.getUTCFullYear();
-      month = nowShifted.getUTCMonth();
-      day = nowShifted.getUTCDate();
-    }
+    let nowShifted = new Date(Date.now() + 8 * 3600 * 1000);
+    let year = nowShifted.getUTCFullYear();
+    let month = nowShifted.getUTCMonth();
+    let day = nowShifted.getUTCDate();
 
     // 08:00:00 UTC+8 = that day's UTC 00:00:00
     let now = Date.UTC(year, month, day, 0, 0, 0, 0);
