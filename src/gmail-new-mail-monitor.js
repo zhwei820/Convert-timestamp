@@ -121,6 +121,44 @@
         } catch (e) {
             // background 可能未就绪，忽略
         }
+        playBeep();
+    }
+
+    /**
+     * 用 Web Audio API 播放一段新邮件提示音（两声上升的 "叮咚"）。
+     * 不依赖任何音频文件或 OS 通知声音设置。
+     */
+    function playBeep() {
+        try {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            const ctx = new Ctx();
+
+            const notes = [988, 1319]; // B5 → E6
+
+            const now = ctx.currentTime;
+            const stepDur = 0.18;
+            notes.forEach(function (freq, i) {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = "sine";
+                osc.frequency.value = freq;
+                const start = now + i * (stepDur + 0.04);
+                const end = start + stepDur;
+                gain.gain.setValueAtTime(0, start);
+                gain.gain.linearRampToValueAtTime(0.25, start + 0.02);
+                gain.gain.linearRampToValueAtTime(0, end);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(start);
+                osc.stop(end + 0.02);
+            });
+
+            setTimeout(function () {
+                ctx.close().catch(function () {});
+            }, (notes.length * 250) + 200);
+        } catch (e) {
+            console.warn("[gmail-new-mail-monitor] playBeep failed:", e && e.message);
+        }
     }
 
     function start() {
