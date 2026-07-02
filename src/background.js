@@ -45,6 +45,14 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         }
         return;
     }
+    if (message && typeof message === "object" && message.type === "gmail-new-mail") {
+        try {
+            handleGmailNewMail(message, sender);
+        } catch (e) {
+            console.error("[background] handleGmailNewMail threw:", e);
+        }
+        return;
+    }
     try {
         chrome.storage.local.get(["timestampJudgeType"], function (res) {
             const judgeType = (res && res.timestampJudgeType) || "3";
@@ -135,15 +143,94 @@ function handleGitlabPipelineFinished(message, sender) {
 }
 
 chrome.notifications.onClicked.addListener(function (notificationId) {
-    if (notificationId.indexOf("gitlab-pipeline-") !== 0) return;
-    chrome.storage.local.get(["gitlabNotificationUrls"], function (result) {
-        const map = (result && result.gitlabNotificationUrls) || {};
-        const url = map[notificationId];
-        if (url) {
-            chrome.tabs.create({ url: url });
-            delete map[notificationId];
-            chrome.storage.local.set({ gitlabNotificationUrls: map });
-        }
-        chrome.notifications.clear(notificationId);
-    });
+    if (notificationId.indexOf("gitlab-pipeline-") === 0) {
+        chrome.storage.local.get(["gitlabNotificationUrls"], function (result) {
+            const map = (result && result.gitlabNotificationUrls) || {};
+            const url = map[notificationId];
+            if (url) {
+                chrome.tabs.create({ url: url });
+                delete map[notificationId];
+                chrome.storage.local.set({ gitlabNotificationUrls: map });
+            }
+            chrome.notifications.clear(notificationId);
+        });
+        return;
+    }
+    if (notificationId.indexOf("gmail-new-mail-") === 0) {
+        chrome.storage.local.get(["gmailNotificationUrls"], function (result) {
+            const map = (result && result.gmailNotificationUrls) || {};
+            const url = map[notificationId];
+            if (url) {
+                chrome.tabs.create({ url: url });
+                delete map[notificationId];
+                chrome.storage.local.set({ gmailNotificationUrls: map });
+            }
+            chrome.notifications.clear(notificationId);
+        });
+        return;
+    }
 });
+
+function handleGmailNewMail(message, sender) {
+    console.log("[background] handleGmailNewMail:", message);
+
+    const delta = Number(message.delta) || 1;
+    const totalUnread = Number(message.totalUnread) || 0;
+    const host = message.host || (sender && sender.url ? new URL(sender.url).host : "mail.google.com");
+    const url = message.url || (sender && sender.url) || "https://mail.google.com/mail/";
+    const mailSender = (message.sender || "").trim();
+    const subject = (message.subject || "").trim();
+
+    const notificationId = "gmail-new-mail-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+    const title = "📧 Gmail 新邮件" + (delta > 1 ? "(" + delta + " 封)" : "");
+    // 优先展示发件人 / 主题；抓不到就退化为未读总数
+    let body;
+    if (mailSender || subject) {
+        body =
+            (mailSender ? "发件人: " + mailSender + "\n" : "") +
+            (subject ? "主题: " + subject + "\n" : "") +
+            "未读总数: " + totalUnread;
+    } else {
+        body = "未读总数: " + totalUnread + "\n" + host;
+    }
+
+    if (url) {
+        chrome.storage.local.get(["gmailNotificationUrls"], function (result) {
+            const map = (result && result.gmailNotificationUrls) || {};
+            map[notificationId] = url;
+            const keys = Object.keys(map);
+            if (keys.length > 50) {
+                keys.sort();
+                for (let i = 0; i < keys.length - 50; i++) delete map[keys[i]];
+            }
+            chrome.storage.local.set({ gmailNotificationUrls: map });
+        });
+    }
+
+    if (!chrome.notifications) {
+        console.error("[background] chrome.notifications is undefined — 'notifications' permission missing?");
+        return;
+    }
+
+    chrome.notifications.create(
+        notificationId,
+        {
+            type: "basic",
+            iconUrl: chrome.runtime.getURL("img/WechatIMG750.jpg"),
+            title: title,
+            message: body,
+            priority: 2,
+            requireInteraction: false,
+        },
+        function (createdId) {
+            if (chrome.runtime.lastError) {
+                console.error(
+                    "[background] gmail notifications.create failed:",
+                    chrome.runtime.lastError.message
+                );
+            } else {
+                console.log("[background] gmail notification created:", createdId);
+            }
+        }
+    );
+}
