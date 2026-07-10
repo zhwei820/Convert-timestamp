@@ -56,9 +56,11 @@
 
     function renderHtml(html) {
         try {
-            document.open("text/html", "replace");
-            document.write(html);
-            document.close();
+            // 用 blob: URL 跳转，避开当前页面 (GitLab/GitHub) 的 CSP。
+            // document.write 会复用当前 origin，内联 <script> 会被拦截。
+            const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            location.replace(url);
         } catch (e) {
             console.warn("[raw-html-preview] render failed:", e);
             alert("渲染失败：" + (e && e.message ? e.message : e));
