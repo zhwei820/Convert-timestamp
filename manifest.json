@@ -51,6 +51,16 @@
       ],
       "run_at": "document_idle",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "https://files.slack.com/*"
+      ],
+      "js": [
+        "src/slack-file-preview.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
   "options_page": "src/popup.html",
