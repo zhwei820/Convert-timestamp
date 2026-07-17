@@ -106,6 +106,15 @@
             // 水平线
             .replace(/^---$/gm, "<hr>")
             .replace(/^\*\*\*$/gm, "<hr>")
+            // 表格 (pipe tables)
+            .replace(/^\|(.+)\|\n\|([-| :]+)\|\n((?:\|.+\|(?:\n|$))*)/gm, (_m, hRow, _s, bRows) => {
+                const headers = hRow.split("|").filter(c => c.trim()).map(h => `<th>${h.trim()}</th>`).join("");
+                const rows = bRows.trim().split("\n").map(row => {
+                    const cells = row.split("|").filter(c => c.trim()).map(c => `<td>${c.trim()}</td>`).join("");
+                    return `<tr>${cells}</tr>`;
+                }).join("");
+                return `<table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
+            })
             // 段落（双换行）
             .replace(/\n\n/g, "</p><p>")
             // 换行
