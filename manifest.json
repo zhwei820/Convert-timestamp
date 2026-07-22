@@ -61,6 +61,29 @@
       ],
       "run_at": "document_idle",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "*://*/*"
+      ],
+      "js": [
+        "src/csv-parser.js",
+        "src/csv-drop-preview.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/csv-viewer.html",
+        "src/csv-viewer.js",
+        "src/csv-parser.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "options_page": "src/popup.html",

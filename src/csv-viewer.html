@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CSV Viewer</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans SC',sans-serif;background:#f7f8fa;color:#1d1c1d;min-height:100vh}
+.dropzone{margin:40px auto;max-width:640px;padding:60px 32px;background:#fff;border:3px dashed #c8d3e0;border-radius:16px;text-align:center;transition:all 0.2s}
+.dropzone.hover{border-color:#1264a3;background:#eef6fd;transform:scale(1.01)}
+.dropzone h1{margin:0 0 8px;font-size:22px;color:#1264a3}
+.dropzone p{margin:6px 0;color:#555;font-size:14px}
+.dropzone .icon{font-size:56px;margin-bottom:14px}
+.dropzone button{margin-top:16px;padding:10px 22px;background:#1264a3;color:#fff;border:none;border-radius:8px;font:600 14px/1 -apple-system,sans-serif;cursor:pointer}
+.dropzone button:hover{background:#0e4f80}
+.dropzone input[type=file]{display:none}
+.header{position:sticky;top:0;background:#fff;border-bottom:1px solid #e5e7eb;padding:12px 20px;display:flex;align-items:center;gap:16px;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.header h1{margin:0;font-size:16px;color:#1264a3;font-weight:600}
+.header .meta{font-size:13px;color:#666;display:flex;gap:14px}
+.header .meta span b{color:#333;font-weight:600}
+.header .actions{margin-left:auto}
+.header button{padding:6px 14px;background:#eef1f5;color:#333;border:none;border-radius:6px;font:500 13px/1 -apple-system,sans-serif;cursor:pointer}
+.header button:hover{background:#dfe4eb}
+.wrap{padding:16px 20px 32px;overflow-x:auto}
+.csv-table{border-collapse:collapse;font:13px/1.5 Menlo,Consolas,monospace;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.06);border-radius:6px;overflow:hidden}
+.csv-table th,.csv-table td{border:1px solid #e5e7eb;padding:6px 10px;text-align:left;vertical-align:top;white-space:pre-wrap;word-break:break-word;max-width:200px}
+.csv-table thead th{background:#f0f4f8;color:#1264a3;font-weight:600;position:sticky;top:53px;z-index:5}
+.csv-table th .idx{display:inline-block;min-width:20px;color:#9aa;font-weight:400;margin-right:4px}
+.csv-table td.rownum,.csv-table th.rownum{background:#fafbfc;color:#9aa;text-align:right;font-weight:400;position:sticky;left:0;z-index:4}
+.csv-table thead th.rownum{z-index:6}
+.csv-table tbody tr:hover td{background:#fffbea}
+.csv-table tbody tr:hover td.rownum{background:#fff3c4}
+.hint{color:#8a8a8a;font-size:12px;margin-top:12px}
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+<div id="dropView" class="dropzone">
+<div class="icon">📄</div>
+<h1>拖入 CSV / TSV 文件预览</h1>
+<p>把本地文件拖到这个区域，或点下面的按钮选择</p>
+<button id="pickBtn" type="button">选择文件</button>
+<input type="file" id="fileInput" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain">
+<p class="hint">支持 .csv / .tsv / .txt，自动识别分隔符（, / TAB / ; / |）</p>
+</div>
+
+<div id="tableView" class="hidden">
+<div class="header">
+<h1 id="titleEl">CSV Preview</h1>
+<div class="meta">
+<span>行数 <b id="rowCountEl">0</b></span>
+<span>列数 <b id="colCountEl">0</b></span>
+<span>分隔符 <b id="delimEl">-</b></span>
+</div>
+<div class="actions"><button id="resetBtn">重新选择</button></div>
+</div>
+<div class="wrap" id="tableWrap"></div>
+</div>
+
+<script src="csv-parser.js"></script>
+<script src="csv-viewer.js"></script>
+</body>
+</html>
