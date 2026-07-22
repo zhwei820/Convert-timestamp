@@ -102,12 +102,13 @@
         const body = rows.slice(1);
         const th = [];
         for (let i = 0; i < colCount; i++) {
-            th.push(`<th><span class="idx">${i + 1}</span> ${escapeHtml(header[i] || "")}</th>`);
+            const hv = header[i] || "";
+            th.push(`<th data-col="${i}" data-value="${escapeHtml(hv).replace(/"/g, "&quot;")}" title="点击复制整列"><span class="idx">${i + 1}</span> ${escapeHtml(hv)}</th>`);
         }
         const tr = body.map((r, ri) => {
             const tds = [];
             for (let i = 0; i < colCount; i++) {
-                tds.push(`<td>${escapeHtml(r[i] || "")}</td>`);
+                tds.push(`<td data-col="${i}">${escapeHtml(r[i] || "")}</td>`);
             }
             return `<tr><td class="rownum">${ri + 2}</td>${tds.join("")}</tr>`;
         });
@@ -115,6 +116,62 @@
 <thead><tr><th class="rownum">#</th>${th.join("")}</tr></thead>
 <tbody>${tr.join("")}</tbody>
 </table>`;
+    }
+
+    // 给已渲染的表格挂"点列头复制整列"行为。含 header 行。
+    // 需要页面里存在 id=csvToast 的元素用于反馈；没有则只走 clipboard。
+    function attachColumnCopy(root) {
+        root = root || document;
+        const table = root.querySelector(".csv-table");
+        if (!table) return;
+        const toast = document.getElementById("csvToast");
+
+        function showToast(msg) {
+            if (!toast) return;
+            toast.textContent = msg;
+            toast.classList.add("show");
+            clearTimeout(toast.__hideTimer);
+            toast.__hideTimer = setTimeout(() => toast.classList.remove("show"), 1600);
+        }
+
+        function fallbackCopy(text) {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0";
+            document.body.appendChild(ta);
+            ta.select();
+            let ok = false;
+            try { ok = document.execCommand("copy"); } catch (_) {}
+            ta.remove();
+            return ok;
+        }
+
+        function highlight(col) {
+            table.querySelectorAll(".col-selected").forEach(el => el.classList.remove("col-selected"));
+            table.querySelectorAll(`[data-col="${col}"]`).forEach(el => el.classList.add("col-selected"));
+            clearTimeout(table.__hlTimer);
+            table.__hlTimer = setTimeout(() => {
+                table.querySelectorAll(".col-selected").forEach(el => el.classList.remove("col-selected"));
+            }, 1400);
+        }
+
+        table.addEventListener("click", function (e) {
+            const th = e.target.closest("th[data-col]");
+            if (!th || !table.contains(th)) return;
+            const col = th.getAttribute("data-col");
+            const headerValue = th.getAttribute("data-value") || "";
+            const bodyCells = table.querySelectorAll(`tbody td[data-col="${col}"]`);
+            const values = [headerValue].concat(Array.from(bodyCells).map(c => c.textContent));
+            const text = values.join("\n");
+            highlight(col);
+            const label = headerValue.trim() || `第 ${Number(col) + 1} 列`;
+            const finish = (ok) => showToast(ok ? `已复制列「${label}」（${values.length - 1} 行 + 表头）` : "复制失败");
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => finish(true), () => finish(fallbackCopy(text)));
+            } else {
+                finish(fallbackCopy(text));
+            }
+        });
     }
 
     function buildViewerHtml(rows, meta) {
@@ -149,6 +206,12 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'No
 .csv-table thead th.rownum{z-index:6}
 .csv-table tbody tr:hover td{background:#fffbea}
 .csv-table tbody tr:hover td.rownum{background:#fff3c4}
+.csv-table thead th[data-col]{cursor:pointer;user-select:none}
+.csv-table thead th[data-col]:hover{background:#dbe7f2}
+.csv-table .col-selected{background:#fff3c4 !important;transition:background 0.15s}
+.csv-table thead th.col-selected{background:#ffe08a !important}
+#csvToast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);background:rgba(20,20,20,0.9);color:#fff;padding:10px 18px;border-radius:8px;font:500 13px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.25);opacity:0;pointer-events:none;transition:opacity 0.15s,transform 0.15s;z-index:100}
+#csvToast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .empty{color:#888;padding:40px;text-align:center}
 </style>
 </head>
@@ -162,9 +225,16 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'No
 </div>
 </div>
 <div class="wrap">${table}</div>
+<div id="csvToast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+${attachColumnCopy.toString()}
+attachColumnCopy(document);
+})();
+</script>
 </body>
 </html>`;
     }
 
-    root.__csvUtils = { parseCsv, detectDelimiter, renderTableHtml, buildViewerHtml, escapeHtml };
+    root.__csvUtils = { parseCsv, detectDelimiter, renderTableHtml, buildViewerHtml, escapeHtml, attachColumnCopy };
 })(typeof window !== "undefined" ? window : globalThis);

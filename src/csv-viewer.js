@@ -45,6 +45,7 @@
         tableWrap.innerHTML = utils.renderTableHtml(rows);
         dropView.classList.add("hidden");
         tableView.classList.remove("hidden");
+        utils.attachColumnCopy(tableWrap);
     }
 
     function reset() {
