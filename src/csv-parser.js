@@ -196,8 +196,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'No
 .header .meta{font-size:13px;color:#666;display:flex;gap:14px}
 .header .meta span b{color:#333;font-weight:600}
 .wrap{padding:16px 20px 32px;overflow-x:auto;overflow-y:visible}
-.csv-table{border-collapse:collapse;font:13px/1.5 Menlo,Consolas,monospace;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.06);border-radius:6px;overflow:hidden}
-.csv-table{table-layout:auto}
+.csv-table{border-collapse:collapse;font:13px/1.5 Menlo,Consolas,monospace;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.06);table-layout:auto}
 .csv-table th,.csv-table td{border:1px solid #e5e7eb;padding:6px 10px;text-align:left;vertical-align:top;white-space:pre-wrap;word-break:break-word;min-width:120px;max-width:200px}
 .csv-table td.rownum,.csv-table th.rownum{min-width:0}
 .csv-table thead th{background:#f0f4f8;color:#1264a3;font-weight:600;position:sticky;top:53px;z-index:5}
