@@ -191,15 +191,15 @@
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans SC',sans-serif;background:#f7f8fa;color:#1d1c1d}
-.header{position:sticky;top:0;background:#fff;border-bottom:1px solid #e5e7eb;padding:12px 20px;display:flex;align-items:center;gap:16px;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.04);min-height:53px}
+.header{position:sticky;top:0;background:#fff;border-bottom:1px solid #e5e7eb;padding:12px 20px;display:flex;align-items:center;gap:16px;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
 .header h1{margin:0;font-size:16px;color:#1264a3;font-weight:600}
 .header .meta{font-size:13px;color:#666;display:flex;gap:14px}
 .header .meta span b{color:#333;font-weight:600}
-.wrap{padding:16px 20px 32px;overflow-x:auto;overflow-y:visible}
+.wrap{padding:0 20px 32px;overflow-x:auto;overflow-y:visible}
 .csv-table{border-collapse:collapse;font:13px/1.5 Menlo,Consolas,monospace;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.06);table-layout:auto}
 .csv-table th,.csv-table td{border:1px solid #e5e7eb;padding:6px 10px;text-align:left;vertical-align:top;white-space:pre-wrap;word-break:break-word;min-width:120px;max-width:200px}
 .csv-table td.rownum,.csv-table th.rownum{min-width:0}
-.csv-table thead th{background:#f0f4f8;color:#1264a3;font-weight:600;position:sticky;top:53px;z-index:5}
+.csv-table thead th{background:#f0f4f8;color:#1264a3;font-weight:600;position:sticky;top:var(--header-h,0);z-index:5}
 .csv-table th .idx{display:inline-block;min-width:20px;color:#9aa;font-weight:400;margin-right:4px}
 .csv-table td.rownum,.csv-table th.rownum{background:#fafbfc;color:#9aa;text-align:right;font-weight:400;position:sticky;left:0;z-index:4}
 .csv-table thead th.rownum{z-index:6}
@@ -228,6 +228,13 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'No
 <script>
 (function(){
 ${attachColumnCopy.toString()}
+function syncHeaderVar(){
+  var h = document.querySelector('.header');
+  if (!h) return;
+  document.documentElement.style.setProperty('--header-h', h.getBoundingClientRect().height + 'px');
+}
+syncHeaderVar();
+window.addEventListener('resize', syncHeaderVar);
 attachColumnCopy(document);
 })();
 </script>

@@ -36,6 +36,12 @@
         reader.readAsText(file, "UTF-8");
     }
 
+    function syncHeaderVar() {
+        const h = document.querySelector(".header");
+        if (!h) return;
+        document.documentElement.style.setProperty("--header-h", h.getBoundingClientRect().height + "px");
+    }
+
     function render(rows, filename, delimiter) {
         titleEl.textContent = filename;
         document.title = filename;
@@ -45,8 +51,11 @@
         tableWrap.innerHTML = utils.renderTableHtml(rows);
         dropView.classList.add("hidden");
         tableView.classList.remove("hidden");
+        syncHeaderVar();
         utils.attachColumnCopy(tableWrap);
     }
+
+    window.addEventListener("resize", syncHeaderVar);
 
     function reset() {
         tableView.classList.add("hidden");
