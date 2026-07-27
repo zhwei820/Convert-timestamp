@@ -406,7 +406,7 @@
         const parent = document.body || document.documentElement;
         if (!document.getElementById(BTN_ID)) {
             parent.appendChild(
-                createButton(BTN_ID, "🔊 朗读", "朗读页面中的问题和答案", 24, () => {
+                createButton(BTN_ID, "🔊 朗读", "朗读页面中的问题和答案", 50, () => {
                     if (reading) {
                         stopReading();
                     } else {
@@ -417,7 +417,7 @@
         }
         if (!document.getElementById(NEXT_BTN_ID)) {
             parent.appendChild(
-                createButton(NEXT_BTN_ID, "⏭ 下一条", "跳过当前，朗读下一个问题和答案", 68, skipToNext)
+                createButton(NEXT_BTN_ID, "⏭ 下一条", "跳过当前，朗读下一个问题和答案", 150, skipToNext)
             );
         }
         updateButton();
