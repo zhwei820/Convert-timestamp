@@ -385,7 +385,7 @@
             "color:#fff",
             "border:none",
             "border-radius:20px",
-            "font:600 14px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
+            "font:600 34px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
             "cursor:pointer",
             "box-shadow:0 2px 10px rgba(0,0,0,0.3)",
         ].join(";");
