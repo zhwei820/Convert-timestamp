@@ -72,6 +72,16 @@
       ],
       "run_at": "document_idle",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "*://www.zhihu.com/*"
+      ],
+      "js": [
+        "src/zhihu-read-aloud.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
   "web_accessible_resources": [
