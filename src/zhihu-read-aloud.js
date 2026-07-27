@@ -391,40 +391,66 @@
         ].join(";");
     }
 
+    function createButton(id, text, title, bottom, onClick) {
+        const btn = document.createElement("button");
+        btn.id = id;
+        btn.type = "button";
+        btn.textContent = text;
+        btn.title = title;
+        btn.style.cssText = baseButtonStyle(bottom);
+        btn.addEventListener("click", onClick);
+        return btn;
+    }
+
     function injectButton() {
-        if (document.getElementById(BTN_ID)) {
+        const parent = document.body || document.documentElement;
+        if (!document.getElementById(BTN_ID)) {
+            parent.appendChild(
+                createButton(BTN_ID, "🔊 朗读", "朗读页面中的问题和答案", 24, () => {
+                    if (reading) {
+                        stopReading();
+                    } else {
+                        startReading();
+                    }
+                })
+            );
+        }
+        if (!document.getElementById(NEXT_BTN_ID)) {
+            parent.appendChild(
+                createButton(NEXT_BTN_ID, "⏭ 下一条", "跳过当前，朗读下一个问题和答案", 68, skipToNext)
+            );
+        }
+        updateButton();
+        startButtonGuard();
+    }
+
+    // 知乎 SPA 重渲染可能把按钮从 DOM 移除，被移除后自动补回，保证始终可见
+    let buttonGuard = null;
+
+    function startButtonGuard() {
+        if (buttonGuard) {
             return;
         }
-        const btn = document.createElement("button");
-        btn.id = BTN_ID;
-        btn.type = "button";
-        btn.textContent = "🔊 朗读";
-        btn.title = "朗读页面中的问题和答案";
-        btn.style.cssText = baseButtonStyle(24);
-        btn.addEventListener("click", () => {
-            if (reading) {
-                stopReading();
-            } else {
-                startReading();
+        buttonGuard = new MutationObserver(() => {
+            if (!document.getElementById(BTN_ID) || !document.getElementById(NEXT_BTN_ID)) {
+                log("检测到按钮被移除，重新注入");
+                injectButton();
             }
         });
+        buttonGuard.observe(document.body || document.documentElement, { childList: true });
+    }
 
-        const nextBtn = document.createElement("button");
-        nextBtn.id = NEXT_BTN_ID;
-        nextBtn.type = "button";
-        nextBtn.textContent = "⏭ 下一条";
-        nextBtn.title = "跳过当前，朗读下一个问题和答案";
-        nextBtn.style.cssText = baseButtonStyle(68) + ";display:none";
-        nextBtn.addEventListener("click", skipToNext);
-
-        const parent = document.body || document.documentElement;
-        parent.appendChild(btn);
-        parent.appendChild(nextBtn);
+    function stopButtonGuard() {
+        if (buttonGuard) {
+            buttonGuard.disconnect();
+            buttonGuard = null;
+        }
     }
 
     window.addEventListener("beforeunload", () => speechSynthesis.cancel());
 
     function removeButtons() {
+        stopButtonGuard();
         [BTN_ID, NEXT_BTN_ID].forEach((id) => {
             const el = document.getElementById(id);
             if (el) {
