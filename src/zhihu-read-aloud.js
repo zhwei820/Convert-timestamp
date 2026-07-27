@@ -424,16 +424,45 @@
 
     window.addEventListener("beforeunload", () => speechSynthesis.cancel());
 
+    function removeButtons() {
+        [BTN_ID, NEXT_BTN_ID].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.remove();
+            }
+        });
+    }
+
     function init() {
         log("已加载，页面:", location.href);
-        injectButton();
-        // 等信息流渲染完成后自动开始朗读
-        setTimeout(() => {
-            if (!reading) {
-                log("1.5s 后触发自动朗读");
-                startReading();
+        chrome.storage.local.get(["zhihuReadAloudEnabled"], (result) => {
+            const enabled = result.zhihuReadAloudEnabled !== false;
+            log("启用状态:", enabled);
+            if (!enabled) {
+                return;
             }
-        }, 1500);
+            injectButton();
+            // 等信息流渲染完成后自动开始朗读
+            setTimeout(() => {
+                if (!reading) {
+                    log("1.5s 后触发自动朗读");
+                    startReading();
+                }
+            }, 1500);
+        });
+        chrome.storage.onChanged.addListener((changes, area) => {
+            if (area !== "local" || !changes.zhihuReadAloudEnabled) {
+                return;
+            }
+            const enabled = changes.zhihuReadAloudEnabled.newValue !== false;
+            log("启用状态变更:", enabled);
+            if (enabled) {
+                injectButton();
+            } else {
+                stopReading();
+                removeButtons();
+            }
+        });
     }
 
     if (document.readyState === "complete" || document.readyState === "interactive") {

@@ -24,6 +24,17 @@ document.addEventListener("DOMContentLoaded", function () {
     autoCopyCheckbox.addEventListener("change", function () {
       chrome.storage.local.set({ autoCopyOnSelect: autoCopyCheckbox.checked });
     });
+
+    // 知乎自动朗读：默认开启
+    const zhihuReadAloudCheckbox = document.getElementById("zhihuReadAloud");
+    chrome.storage.local.get(["zhihuReadAloudEnabled"], function (result) {
+      zhihuReadAloudCheckbox.checked = result.zhihuReadAloudEnabled !== false;
+    });
+    zhihuReadAloudCheckbox.addEventListener("change", function () {
+      chrome.storage.local.set({
+        zhihuReadAloudEnabled: zhihuReadAloudCheckbox.checked,
+      });
+    });
   }
 
   // Set focus to input field and select content when popup opens
