@@ -109,6 +109,42 @@ function convert(s, type) {
     return Date.UTC(year, month - 1, day);
   }
 
+  // 纯时间字符串: "7:20am (UTC)" / "7:20:30 PM" / "13:45 UTC" 等
+  // 只在带 am/pm 或时区标记时触发，避免误吞 "7:20" 这种交给下面老逻辑
+  let timeMatch = /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?\s*\(?\s*(UTC|GMT)?\s*\)?$/i.exec(
+    s.trim()
+  );
+  if (timeMatch && (timeMatch[4] || timeMatch[5])) {
+    let h = parseInt(timeMatch[1], 10);
+    let m = parseInt(timeMatch[2], 10);
+    let sec = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+    let ampm = timeMatch[4] ? timeMatch[4].toLowerCase() : null;
+    let isUTC = !!timeMatch[5];
+
+    if (ampm === "am" && h === 12) h = 0;
+    else if (ampm === "pm" && h !== 12) h += 12;
+
+    let now = new Date();
+    if (isUTC) {
+      return Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        h,
+        m,
+        sec
+      );
+    }
+    return new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      h,
+      m,
+      sec
+    ).getTime();
+  }
+
   if (s.indexOf(".") === -1 && !isNaN(s)) {
     return getTimeString(parseInt(s), type);
   } else {
