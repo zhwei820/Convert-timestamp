@@ -54,7 +54,8 @@
     },
     {
       "matches": [
-        "https://files.slack.com/*"
+        "https://files.slack.com/*",
+        "https://slack-files.com/*"
       ],
       "js": [
         "src/slack-file-preview.js"

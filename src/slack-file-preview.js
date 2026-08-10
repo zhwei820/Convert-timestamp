@@ -1,8 +1,13 @@
 /**
  * Slack 文件友好预览按钮
  *
- * 在 files.slack.com 的文本文件页面上注入一个浮动按钮，
- * 点击后把原始内容渲染成更易读的页面（Markdown 渲染、代码高亮等）。
+ * 在 Slack 文件页面上注入一个浮动按钮，
+ * 点击后把原始内容渲染成更易读的页面（Markdown 渲染、HTML 直接渲染等）。
+ *
+ * 适配 URL 形如：
+ *   - https://files.slack.com/files-pri/<team>-<file>/<name>
+ *   - https://slack-files.com/files-pri-safe/<team>-<file>/<name>?c=...
+ *     （.html 走 files-pri-safe 时 Slack 以纯文本下发，浏览器只显示源码）
  */
 (function () {
     "use strict";
@@ -16,15 +21,21 @@
         const host = location.hostname;
         const path = location.pathname;
         return (
-            host === "files.slack.com" &&
-            /^\/files-pri\//.test(path)
+            (host === "files.slack.com" || host === "slack-files.com") &&
+            /^\/files-pri(-safe)?\//.test(path)
         );
     }
 
     function getFileName() {
-        const path = location.pathname;
-        const parts = path.split("/");
-        return parts[parts.length - 1] || "";
+        // location.pathname 不含 ?query，直接取最后一段即可
+        const parts = location.pathname.split("/");
+        let name = parts[parts.length - 1] || "";
+        try {
+            name = decodeURIComponent(name);
+        } catch (e) {
+            // 保持原样
+        }
+        return name;
     }
 
     function isTextFile(filename) {
@@ -49,6 +60,17 @@
         return ext === "md" || ext === "markdown";
     }
 
+    function isHtmlFile(filename) {
+        const ext = filename.split(".").pop().toLowerCase();
+        return ext === "html" || ext === "htm";
+    }
+
+    function looksLikeHtml(text) {
+        if (!text) return false;
+        const head = text.trimStart().slice(0, 200).toLowerCase();
+        return head.startsWith("<!doctype") || head.startsWith("<html") || /<[a-z!]/.test(head);
+    }
+
     function extractFileContent() {
         // Slack 文件页面用 <pre> 显示文件内容
         // 找页面中最大的内容型 <pre>（排除消息区域的）
@@ -68,7 +90,14 @@
                 best = text;
             }
         }
-        return best;
+        if (best) return best;
+
+        // 兜底：纯文本文档（slack-files.com 把 .html 以 text/plain 下发）
+        // 某些情况下浏览器不会包 <pre>，直接取 body 文本
+        if (document.contentType && document.contentType.indexOf("text/") === 0 && document.contentType !== "text/html") {
+            return (document.body && (document.body.innerText || document.body.textContent)) || null;
+        }
+        return null;
     }
 
     function simpleMarkdownRender(text) {
@@ -175,12 +204,25 @@ ${bodyHtml}
 </html>`;
     }
 
+    function openAsBlob(html) {
+        // 用 blob: URL 打开新标签页，避开当前页面的 CSP（内联 <script> 会被拦截）
+        const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+    }
+
     function renderPreview(content, filename) {
         try {
-            const html = getPreviewHtml(content, filename);
-            const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-            const url = URL.createObjectURL(blob);
-            window.open(url, "_blank");
+            if (isHtmlFile(filename)) {
+                if (!looksLikeHtml(content)) {
+                    alert("未识别到 HTML 内容，无法预览。");
+                    return;
+                }
+                // HTML 文件直接原样渲染，而不是展示转义后的源码
+                openAsBlob(content);
+                return;
+            }
+            openAsBlob(getPreviewHtml(content, filename));
         } catch (e) {
             console.warn("[slack-file-preview] render failed:", e);
             alert("渲染失败：" + (e && e.message ? e.message : e));
@@ -193,11 +235,14 @@ ${bodyHtml}
         const filename = getFileName();
         if (!isTextFile(filename)) return;
 
+        const isHtml = isHtmlFile(filename);
         const btn = document.createElement("button");
         btn.id = BTN_ID;
         btn.type = "button";
-        btn.textContent = "📄 友好预览";
-        btn.title = `将 ${filename} 渲染为可读页面`;
+        btn.textContent = isHtml ? "🌐 渲染 HTML" : "📄 友好预览";
+        btn.title = isHtml
+            ? `将 ${filename} 源码渲染成网页`
+            : `将 ${filename} 渲染为可读页面`;
         btn.style.cssText = [
             "position:fixed",
             "top:12px",
