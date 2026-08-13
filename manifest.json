@@ -37,6 +37,7 @@
         "*://*/*"
       ],
       "js": [
+        "src/text-preview-core.js",
         "src/raw-html-preview.js"
       ],
       "run_at": "document_idle",
@@ -58,6 +59,7 @@
         "https://slack-files.com/*"
       ],
       "js": [
+        "src/text-preview-core.js",
         "src/slack-file-preview.js"
       ],
       "run_at": "document_idle",

@@ -1,13 +1,15 @@
 /**
- * Raw HTML 预览按钮
+ * Raw 文件预览按钮
  *
- * 在 GitHub / GitLab 直接返回 HTML 源码（text/plain）的 raw 链接上，
+ * 在 GitHub / GitLab 直接返回源码（text/plain）的 raw 链接上，
  * 注入一个浮动按钮，点击后把当前文档替换成渲染后的页面。
+ *   - .html / .htm → 原样渲染成网页
+ *   - .md / .markdown → 渲染成排版后的文档
  *
  * 适配 URL 形如：
- *   - https://gitlab.*.com/<group>/<project>/-/raw/<ref>/<path>.html
+ *   - https://gitlab.*.com/<group>/<project>/-/raw/<ref>/<path>.md
  *   - https://github.com/<owner>/<repo>/raw/<ref>/<path>.html
- *   - https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>.html
+ *   - https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>.md
  */
 (function () {
     "use strict";
@@ -18,27 +20,50 @@
     window.__rawHtmlPreviewLoaded = true;
 
     const BTN_ID = "__convert_timestamp_raw_html_preview_btn__";
+    const core = window.__textPreviewCore;
 
-    function isRawHtmlUrl() {
+    function isRawHost() {
         const host = location.hostname;
         const path = location.pathname;
-        const isHtmlExt = /\.html?(?:$|[?#])/i.test(path);
-        if (!isHtmlExt) {
-            return false;
-        }
         if (host === "raw.githubusercontent.com") {
             return true;
         }
         if (host === "github.com" && /\/raw\//.test(path)) {
             return true;
         }
-        if (/^gitlab\.[^.]+\.com$/i.test(host) && /\/-\/raw\//.test(path)) {
+        // 自建 GitLab 域名各异，/-/raw/ 是可靠特征
+        if (/\/-\/raw\//.test(path)) {
             return true;
         }
         return false;
     }
 
-    function extractRawHtml() {
+    /** 返回 "html" | "markdown" | null */
+    function getRawKind() {
+        if (!isRawHost()) {
+            return null;
+        }
+        const path = location.pathname;
+        if (/\.html?(?:$|[?#])/i.test(path)) {
+            return "html";
+        }
+        if (/\.(?:md|markdown)(?:$|[?#])/i.test(path)) {
+            return "markdown";
+        }
+        return null;
+    }
+
+    function getFileName() {
+        const parts = location.pathname.split("/");
+        const name = parts[parts.length - 1] || "";
+        try {
+            return decodeURIComponent(name);
+        } catch (e) {
+            return name;
+        }
+    }
+
+    function extractRawText() {
         // GitLab/GitHub 把 text/plain 内容包在 <pre> 中
         const pre = document.body && document.body.querySelector("pre");
         if (pre && pre.textContent) {
@@ -48,34 +73,41 @@
         return document.body ? document.body.innerText || "" : "";
     }
 
-    function looksLikeHtml(text) {
-        if (!text) return false;
-        const head = text.trimStart().slice(0, 200).toLowerCase();
-        return head.startsWith("<!doctype") || head.startsWith("<html") || /<[a-z!]/.test(head);
-    }
-
-    function renderHtml(html) {
+    function render(kind) {
+        const raw = extractRawText();
+        if (!raw || !raw.trim()) {
+            alert("未能提取到文件内容，无法预览。");
+            return;
+        }
         try {
-            // 用 blob: URL 跳转，避开当前页面 (GitLab/GitHub) 的 CSP。
-            // document.write 会复用当前 origin，内联 <script> 会被拦截。
-            const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-            const url = URL.createObjectURL(blob);
-            location.replace(url);
+            if (kind === "html") {
+                if (!core.looksLikeHtml(raw)) {
+                    alert("未识别到 HTML 内容，无法预览。");
+                    return;
+                }
+                // HTML 原样渲染；用 blob: 跳转以避开 GitLab/GitHub 的 CSP
+                // （document.write 会复用当前 origin，内联 <script> 会被拦截）
+                core.replaceCurrentPage(raw);
+                return;
+            }
+            core.replaceCurrentPage(core.buildPreviewDocument(raw, getFileName(), { markdown: true }));
         } catch (e) {
             console.warn("[raw-html-preview] render failed:", e);
             alert("渲染失败：" + (e && e.message ? e.message : e));
         }
     }
 
-    function injectButton() {
+    function injectButton(kind) {
         if (document.getElementById(BTN_ID)) {
             return;
         }
         const btn = document.createElement("button");
         btn.id = BTN_ID;
         btn.type = "button";
-        btn.textContent = "预览 HTML";
-        btn.title = "把当前 raw 源码渲染成网页";
+        btn.textContent = kind === "html" ? "预览 HTML" : "预览 Markdown";
+        btn.title = kind === "html"
+            ? "把当前 raw 源码渲染成网页"
+            : `把 ${getFileName()} 渲染为可读文档`;
         btn.style.cssText = [
             "position:fixed",
             "top:12px",
@@ -91,24 +123,26 @@
             "box-shadow:0 2px 8px rgba(0,0,0,0.25)",
         ].join(";");
         btn.addEventListener("click", function () {
-            const raw = extractRawHtml();
-            if (!looksLikeHtml(raw)) {
-                alert("未识别到 HTML 内容，无法预览。");
-                return;
-            }
-            renderHtml(raw);
+            render(kind);
         });
         (document.body || document.documentElement).appendChild(btn);
     }
 
     function init() {
-        if (!isRawHtmlUrl()) {
+        const kind = getRawKind();
+        if (!kind) {
+            return;
+        }
+        if (!core) {
+            console.warn("[raw-html-preview] text-preview-core 未加载");
             return;
         }
         if (document.body) {
-            injectButton();
+            injectButton(kind);
         } else {
-            document.addEventListener("DOMContentLoaded", injectButton, { once: true });
+            document.addEventListener("DOMContentLoaded", function () {
+                injectButton(kind);
+            }, { once: true });
         }
     }
 
