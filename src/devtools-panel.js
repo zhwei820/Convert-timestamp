@@ -265,7 +265,7 @@
         out.push("");
         out.push("- 链接：`" + req.url + "`");
         out.push("- 状态：" + (res.status || "-") + " " + (res.statusText || "") +
-            " · 耗时 " + Math.round(item.entry.time || 0) + " ms");
+            " · 耗时 " + Math.max(0, Math.round(item.entry.time || 0)) + " ms");
 
         const query = queryPairs(req);
         if (query.length) {
@@ -310,7 +310,7 @@
             method: req.method,
             url: req.url,
             status: res.status || null,
-            timeMs: Math.round(item.entry.time || 0),
+            timeMs: Math.max(0, Math.round(item.entry.time || 0)),
         };
 
         const query = queryPairs(req);
@@ -435,15 +435,26 @@
     document.documentElement.dataset.theme =
         chrome.devtools.panels.themeName === "dark" ? "dark" : "light";
 
-    // 面板打开前已经发生的请求，从当前 HAR 里补上
-    chrome.devtools.network.getHAR(function (har) {
-        (har && har.entries ? har.entries : []).forEach(addEntry);
-        renderList();
-    });
+    // 面板打开前已经发生的请求，从当前 HAR 里补上。
+    // getHAR 是异步的，这期间完成的请求先攒进 pending，等历史条目落位后再接上，
+    // 否则新请求会排在更早的历史请求前面。
+    let seeding = true;
+    const pending = [];
 
     chrome.devtools.network.onRequestFinished.addListener(function (entry) {
+        if (seeding) {
+            pending.push(entry);
+            return;
+        }
         addEntry(entry);
         scheduleList();
+    });
+
+    chrome.devtools.network.getHAR(function (har) {
+        (har && har.entries ? har.entries : []).forEach(addEntry);
+        seeding = false;
+        pending.splice(0).forEach(addEntry);
+        renderList();
     });
 
     chrome.devtools.network.onNavigated.addListener(function () {
