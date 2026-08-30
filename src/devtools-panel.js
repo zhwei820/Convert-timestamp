@@ -29,6 +29,7 @@
         count: document.getElementById("countEl"),
         main: document.getElementById("mainEl"),
         list: document.getElementById("listEl"),
+        rows: document.getElementById("rowsEl"),
         splitter: document.getElementById("splitterEl"),
         copyBtn: document.getElementById("copyBtn"),
         hint: document.getElementById("detailHint"),
@@ -211,13 +212,14 @@
         els.count.textContent = items.length + " / " + state.items.length;
 
         if (!items.length) {
-            els.list.innerHTML = '<div class="empty">暂无请求<br>面板打开后发生的请求才会记录，刷新页面即可</div>';
+            els.rows.innerHTML = '<div class="empty">暂无请求<br>面板打开后发生的请求才会记录，刷新页面即可</div>';
             return;
         }
 
         const prevTop = els.list.scrollTop;
+        const prevLeft = els.list.scrollLeft;
         const atBottom = prevTop + els.list.clientHeight >= els.list.scrollHeight - 4;
-        els.list.innerHTML = items.map(function (item) {
+        els.rows.innerHTML = items.map(function (item) {
             const req = item.entry.request;
             const res = item.entry.response || {};
             const url = safeUrl(req.url);
@@ -232,8 +234,10 @@
                 "</div>";
         }).join("");
 
-        // 新请求不断追加时跟到底部，否则保持原来的位置
+        // 新请求不断追加时跟到底部，否则保持原来的位置；横向位置一律保持，
+        // 否则正在右拉看长路径时来一个新请求就被弹回最左边
         els.list.scrollTop = atBottom ? els.list.scrollHeight : prevTop;
+        els.list.scrollLeft = prevLeft;
     }
 
     /** 只切 class，不重建 DOM —— 点选时列表不会跳回顶部 */

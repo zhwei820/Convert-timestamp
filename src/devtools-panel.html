@@ -21,6 +21,8 @@ body{margin:0;display:flex;flex-direction:column;background:var(--bg);color:var(
 
 .main{flex:1 1 auto;min-height:0;display:flex}
 .list{flex:0 0 52%;min-width:160px;overflow:auto;border-right:1px solid var(--line)}
+/* 行宽跟着最长的路径走，撑出横向滚动；inline-block + min-width:100% 保证短行的背景也铺满整个滚动宽度 */
+.rows{display:inline-block;min-width:100%;vertical-align:top}
 .splitter{flex:0 0 5px;margin-left:-3px;cursor:col-resize;background:transparent}
 .splitter:hover,.splitter.dragging{background:var(--accent)}
 .row{display:flex;align-items:baseline;gap:6px;padding:3px 8px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
@@ -32,7 +34,7 @@ body{margin:0;display:flex;flex-direction:column;background:var(--bg);color:var(
 .row .status.s3{color:#0969da}
 .row .status.s4{color:#bc4c00}
 .row .status.s5{color:#cf222e}
-.row .path{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;font:12px/1.5 Menlo,Consolas,monospace}
+.row .path{flex:0 0 auto;font:12px/1.5 Menlo,Consolas,monospace}
 
 .detail{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
 .detail-head{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--line)}
@@ -62,7 +64,7 @@ body{margin:0;display:flex;flex-direction:column;background:var(--bg);color:var(
 </div>
 
 <div class="main" id="mainEl">
-<div class="list" id="listEl"></div>
+<div class="list" id="listEl"><div class="rows" id="rowsEl"></div></div>
 <div class="splitter" id="splitterEl" title="拖动调整左右宽度"></div>
 <div class="detail">
 <div class="detail-head">
