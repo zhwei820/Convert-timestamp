@@ -210,7 +210,8 @@
             return;
         }
 
-        const atBottom = els.list.scrollTop + els.list.clientHeight >= els.list.scrollHeight - 4;
+        const prevTop = els.list.scrollTop;
+        const atBottom = prevTop + els.list.clientHeight >= els.list.scrollHeight - 4;
         els.list.innerHTML = items.map(function (item) {
             const req = item.entry.request;
             const res = item.entry.response || {};
@@ -225,9 +226,15 @@
                 "</div>";
         }).join("");
 
-        if (atBottom) {
-            els.list.scrollTop = els.list.scrollHeight;
-        }
+        // 新请求不断追加时跟到底部，否则保持原来的位置
+        els.list.scrollTop = atBottom ? els.list.scrollHeight : prevTop;
+    }
+
+    /** 只切 class，不重建 DOM —— 点选时列表不会跳回顶部 */
+    function updateSelection() {
+        els.list.querySelectorAll(".row").forEach(function (row) {
+            row.classList.toggle("selected", state.selected.indexOf(Number(row.dataset.id)) !== -1);
+        });
     }
 
     /* ---------------- 文本拼装 ---------------- */
@@ -402,7 +409,7 @@
         } else {
             state.selected = [id];
         }
-        renderList();
+        updateSelection();
         renderPreview();
     });
 

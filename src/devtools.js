@@ -7,9 +7,10 @@
 (function () {
     "use strict";
 
+    // iconPath 传空串表示不要图标（该参数在 API schema 里是必填的 string，不能传 null）
     chrome.devtools.panels.create(
         "请求复制",
-        null,
+        "",
         "devtools-panel.html"
     );
 })();
