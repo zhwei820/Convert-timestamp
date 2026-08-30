@@ -114,9 +114,14 @@
         return "`".repeat(n);
     }
 
-    function codeBlock(text, mime) {
+    function codeBlock(text, lang) {
         const fence = fenceFor(text);
-        return fence + langOf(mime || "") + "\n" + text + "\n" + fence;
+        return fence + (lang || "") + "\n" + text + "\n" + fence;
+    }
+
+    /** shell 单引号转义：内容里的 ' 要写成 '\'' */
+    function shellQuote(s) {
+        return "'" + String(s).replace(/'/g, "'\\''") + "'";
     }
 
     function toast(msg) {
@@ -259,9 +264,38 @@
     }
 
     function headerPairs(headers) {
-        return (headers || []).map(function (h) {
-            return { name: h.name, value: SENSITIVE_HEADER.test(h.name) ? "***" : h.value };
-        });
+        return (headers || [])
+            // HTTP/2 的伪首部（:method / :authority /…）不是真实首部，带上反而干扰
+            .filter((h) => h.name && h.name.charAt(0) !== ":")
+            .map(function (h) {
+                return { name: h.name, value: SENSITIVE_HEADER.test(h.name) ? "***" : h.value };
+            });
+    }
+
+    /**
+     * 拼一条能粘进终端重放的 curl。
+     * 请求头只在勾了「含请求头」时带上，且沿用同一套脱敏规则 —— 也就是说
+     * 依赖 Cookie / Authorization 的接口，复制出来的 curl 要自己把凭证填回去才跑得通。
+     */
+    function buildCurl(item, multiline) {
+        const req = item.entry.request;
+        const args = [shellQuote(req.url)];
+
+        if (req.method && req.method !== "GET") {
+            args.push("-X " + req.method);
+        }
+        if (els.withHeaders.checked) {
+            headerPairs(req.headers).forEach(function (h) {
+                if (/^content-length$/i.test(h.name)) {
+                    return; // curl 自己会算，手写反而容易和实际 body 对不上
+                }
+                args.push("-H " + shellQuote(h.name + ": " + h.value));
+            });
+        }
+        if (req.postData && req.postData.text) {
+            args.push("--data-raw " + shellQuote(clip(req.postData.text)));
+        }
+        return "curl " + args.join(multiline ? " \\\n  " : " ");
     }
 
     function buildMarkdown(item, content) {
@@ -273,9 +307,12 @@
 
         out.push("## " + req.method + " " + (url ? url.pathname : req.url));
         out.push("");
-        out.push("- 链接：`" + req.url + "`");
         out.push("- 状态：" + (res.status || "-") + " " + (res.statusText || "") +
             " · 耗时 " + Math.max(0, Math.round(item.entry.time || 0)) + " ms");
+        out.push("");
+        out.push("**cURL**");
+        out.push("");
+        out.push(codeBlock(buildCurl(item, true), "bash"));
 
         const query = queryPairs(req);
         if (query.length) {
@@ -300,14 +337,14 @@
             out.push("");
             out.push("**请求体**" + (post.mimeType ? "（" + post.mimeType + "）" : ""));
             out.push("");
-            out.push(codeBlock(pretty(clip(post.text), post.mimeType), post.mimeType));
+            out.push(codeBlock(pretty(clip(post.text), post.mimeType), langOf(post.mimeType || "")));
         }
 
         out.push("");
         out.push("**响应体**" + (resMime ? "（" + resMime + "）" : ""));
         out.push("");
         const body = bodyText(content, resMime);
-        out.push(body ? codeBlock(body, resMime) : "（空）");
+        out.push(body ? codeBlock(body, langOf(resMime)) : "（空）");
 
         return out.join("\n");
     }
@@ -319,6 +356,7 @@
         const obj = {
             method: req.method,
             url: req.url,
+            curl: buildCurl(item, false),
             status: res.status || null,
             timeMs: Math.max(0, Math.round(item.entry.time || 0)),
         };
