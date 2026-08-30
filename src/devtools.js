@@ -7,10 +7,11 @@
 (function () {
     "use strict";
 
+    // 注意：iconPath / pagePath 都是相对「扩展根目录」而不是本文件，所以要带上 src/
     // iconPath 传空串表示不要图标（该参数在 API schema 里是必填的 string，不能传 null）
     chrome.devtools.panels.create(
         "请求复制",
         "",
-        "devtools-panel.html"
+        "src/devtools-panel.html"
     );
 })();
