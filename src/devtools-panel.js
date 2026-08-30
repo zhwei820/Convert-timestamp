@@ -15,6 +15,9 @@
     const MAX_BODY = 200 * 1024;          // 单个 body 的复制上限，超出截断
     const SENSITIVE_HEADER = /^(cookie|set-cookie|authorization|proxy-authorization|x-api-key|x-auth-token|x-csrf-token)$/i;
     const XHR_TYPES = { xhr: true, fetch: true };
+    const LIST_WIDTH_KEY = "reqcopy.listWidth";
+    const MIN_LIST_WIDTH = 160;
+    const MIN_DETAIL_WIDTH = 200;
 
     const els = {
         filter: document.getElementById("filterInput"),
@@ -24,7 +27,9 @@
         format: document.getElementById("formatSel"),
         clearBtn: document.getElementById("clearBtn"),
         count: document.getElementById("countEl"),
+        main: document.getElementById("mainEl"),
         list: document.getElementById("listEl"),
+        splitter: document.getElementById("splitterEl"),
         copyBtn: document.getElementById("copyBtn"),
         hint: document.getElementById("detailHint"),
         preview: document.getElementById("previewEl"),
@@ -216,13 +221,14 @@
             const req = item.entry.request;
             const res = item.entry.response || {};
             const url = safeUrl(req.url);
+            // 不显示 host —— 一个页面的请求基本都打同一个主域，占着位置不如留给 path。
+            // 完整链接仍在 title 悬浮提示和复制出来的文本里。
             const path = url ? url.pathname + url.search : req.url;
             const selected = state.selected.indexOf(item.id) !== -1 ? " selected" : "";
             return '<div class="row' + selected + '" data-id="' + item.id + '" title="' + esc(req.url) + '">' +
                 '<span class="method">' + esc(req.method) + "</span>" +
                 '<span class="status ' + statusClass(res.status) + '">' + esc(res.status || "-") + "</span>" +
                 '<span class="path">' + esc(path) + "</span>" +
-                '<span class="host">' + esc(url ? url.host : "") + "</span>" +
                 "</div>";
         }).join("");
 
@@ -426,6 +432,39 @@
         renderPreview();
     });
 
+    /* 左右分栏拖拽 —— 想多看 path 就把分隔条往右拽，宽度记在 localStorage 里 */
+
+    function setListWidth(px) {
+        const total = els.main.clientWidth;
+        // 面板还没显示时 clientWidth 为 0，此时不做上限裁剪，否则会被压到最小宽度
+        const max = total > 0 ? Math.max(MIN_LIST_WIDTH, total - MIN_DETAIL_WIDTH) : Infinity;
+        const w = Math.min(Math.max(px, MIN_LIST_WIDTH), max);
+        els.list.style.flexBasis = w + "px";
+        return w;
+    }
+
+    els.splitter.addEventListener("mousedown", function (e) {
+        e.preventDefault();
+        const left = els.main.getBoundingClientRect().left;
+        els.splitter.classList.add("dragging");
+        document.body.style.userSelect = "none";
+
+        function onMove(ev) {
+            setListWidth(ev.clientX - left);
+        }
+        function onUp(ev) {
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("mouseup", onUp);
+            els.splitter.classList.remove("dragging");
+            document.body.style.userSelect = "";
+            try {
+                localStorage.setItem(LIST_WIDTH_KEY, String(setListWidth(ev.clientX - left)));
+            } catch (err) { /* 存不了就下次回到默认宽度 */ }
+        }
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+    });
+
     els.filter.addEventListener("input", renderList);
     els.xhrOnly.addEventListener("change", renderList);
     [els.format, els.withHeaders].forEach((el) => el.addEventListener("change", renderPreview));
@@ -434,6 +473,13 @@
 
     document.documentElement.dataset.theme =
         chrome.devtools.panels.themeName === "dark" ? "dark" : "light";
+
+    try {
+        const saved = Number(localStorage.getItem(LIST_WIDTH_KEY));
+        if (saved > 0) {
+            setListWidth(saved);
+        }
+    } catch (e) { /* 读不到就用 CSS 里的默认宽度 */ }
 
     // 面板打开前已经发生的请求，从当前 HAR 里补上。
     // getHAR 是异步的，这期间完成的请求先攒进 pending，等历史条目落位后再接上，

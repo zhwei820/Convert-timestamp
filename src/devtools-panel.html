@@ -20,18 +20,19 @@ body{margin:0;display:flex;flex-direction:column;background:var(--bg);color:var(
 .toolbar .count{margin-left:auto;color:var(--dim);white-space:nowrap}
 
 .main{flex:1 1 auto;min-height:0;display:flex}
-.list{flex:0 0 40%;max-width:520px;min-width:220px;overflow:auto;border-right:1px solid var(--line)}
-.row{display:flex;align-items:baseline;gap:8px;padding:4px 10px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+.list{flex:0 0 52%;min-width:160px;overflow:auto;border-right:1px solid var(--line)}
+.splitter{flex:0 0 5px;margin-left:-3px;cursor:col-resize;background:transparent}
+.splitter:hover,.splitter.dragging{background:var(--accent)}
+.row{display:flex;align-items:baseline;gap:6px;padding:3px 8px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
 .row:hover{background:var(--hover)}
 .row.selected{background:var(--sel)}
-.row .method{flex:0 0 44px;color:var(--dim);font:600 11px/1.5 Menlo,Consolas,monospace}
-.row .status{flex:0 0 30px;font:600 11px/1.5 Menlo,Consolas,monospace}
+.row .method{flex:0 0 38px;color:var(--dim);font:600 11px/1.5 Menlo,Consolas,monospace}
+.row .status{flex:0 0 26px;font:600 11px/1.5 Menlo,Consolas,monospace}
 .row .status.s2{color:#1a7f37}
 .row .status.s3{color:#0969da}
 .row .status.s4{color:#bc4c00}
 .row .status.s5{color:#cf222e}
 .row .path{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;font:12px/1.5 Menlo,Consolas,monospace}
-.row .host{flex:0 0 auto;color:var(--dim);font-size:11px}
 
 .detail{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
 .detail-head{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--line)}
@@ -60,8 +61,9 @@ body{margin:0;display:flex;flex-direction:column;background:var(--bg);color:var(
 <span class="count" id="countEl">0 / 0</span>
 </div>
 
-<div class="main">
+<div class="main" id="mainEl">
 <div class="list" id="listEl"></div>
+<div class="splitter" id="splitterEl" title="拖动调整左右宽度"></div>
 <div class="detail">
 <div class="detail-head">
 <button id="copyBtn" type="button" disabled>复制</button>
