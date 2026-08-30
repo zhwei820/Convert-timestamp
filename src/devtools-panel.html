@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>请求复制</title>
+<style>
+:root{--bg:#fff;--panel:#f7f8fa;--fg:#1d1c1d;--dim:#6b7280;--line:#e5e7eb;--accent:#1264a3;--sel:#dbe7f2;--hover:#f0f4f8;--code:#f6f8fa}
+:root[data-theme=dark]{--bg:#1f1f1f;--panel:#282828;--fg:#e8eaed;--dim:#9aa0a6;--line:#3c4043;--accent:#8ab4f8;--sel:#28405e;--hover:#2f3134;--code:#202124}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font:12px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif}
+
+.toolbar{flex:0 0 auto;display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line)}
+.toolbar input[type=search]{flex:0 1 220px;min-width:120px;padding:4px 8px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:4px;font:12px/1.4 inherit}
+.toolbar label{display:inline-flex;align-items:center;gap:4px;color:var(--dim);white-space:nowrap;cursor:pointer;user-select:none}
+.toolbar select{padding:3px 6px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:4px;font:12px/1.4 inherit}
+.toolbar button{padding:4px 10px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:4px;font:12px/1.4 inherit;cursor:pointer}
+.toolbar button:hover{background:var(--hover)}
+.toolbar .count{margin-left:auto;color:var(--dim);white-space:nowrap}
+
+.main{flex:1 1 auto;min-height:0;display:flex}
+.list{flex:0 0 40%;max-width:520px;min-width:220px;overflow:auto;border-right:1px solid var(--line)}
+.row{display:flex;align-items:baseline;gap:8px;padding:4px 10px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+.row:hover{background:var(--hover)}
+.row.selected{background:var(--sel)}
+.row .method{flex:0 0 44px;color:var(--dim);font:600 11px/1.5 Menlo,Consolas,monospace}
+.row .status{flex:0 0 30px;font:600 11px/1.5 Menlo,Consolas,monospace}
+.row .status.s2{color:#1a7f37}
+.row .status.s3{color:#0969da}
+.row .status.s4{color:#bc4c00}
+.row .status.s5{color:#cf222e}
+.row .path{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;font:12px/1.5 Menlo,Consolas,monospace}
+.row .host{flex:0 0 auto;color:var(--dim);font-size:11px}
+
+.detail{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+.detail-head{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--line)}
+.detail-head button{padding:4px 14px;background:var(--accent);color:#fff;border:none;border-radius:4px;font:600 12px/1.4 inherit;cursor:pointer}
+.detail-head button:disabled{opacity:.45;cursor:default}
+.hint{color:var(--dim)}
+.preview{flex:1 1 auto;min-height:0;margin:0;padding:10px;overflow:auto;background:var(--code);font:11px/1.6 Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+
+.empty{padding:24px 16px;color:var(--dim);text-align:center;line-height:1.9}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(16px);padding:8px 16px;background:rgba(20,20,20,.92);color:#fff;border-radius:6px;font:12px/1.4 inherit;opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;z-index:100}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+<input type="search" id="filterInput" placeholder="过滤 URL…">
+<label><input type="checkbox" id="xhrOnly" checked> 仅 XHR/Fetch</label>
+<label><input type="checkbox" id="preserveLog"> 保留日志</label>
+<label><input type="checkbox" id="withHeaders"> 含请求头</label>
+<select id="formatSel">
+<option value="md">Markdown</option>
+<option value="json">JSON</option>
+</select>
+<button id="clearBtn" type="button">清空</button>
+<span class="count" id="countEl">0 / 0</span>
+</div>
+
+<div class="main">
+<div class="list" id="listEl"></div>
+<div class="detail">
+<div class="detail-head">
+<button id="copyBtn" type="button" disabled>复制</button>
+<span class="hint" id="detailHint">在左侧点选一个请求（⌘ / Ctrl + 点击可多选）</span>
+</div>
+<pre class="preview" id="previewEl"></pre>
+</div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="devtools-panel.js"></script>
+</body>
+</html>
