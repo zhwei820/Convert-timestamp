@@ -1,6 +1,6 @@
 console.log("[background] service worker booting");
 
-importScripts("utils.js");
+importScripts("utils.js", "sol-price-badge.js");
 
 let titleId = "convert";
 
