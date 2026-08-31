@@ -24,25 +24,27 @@
 
 ## 装上跑起来
 
-**本地调试（改代码看效果）**
-
 ```bash
 cd vs-code-plugin
-npm install          # 可选，只装类型定义，插件本身零运行时依赖
-code .
+make            # 看所有可用命令
+make install    # 打包 + 装进本机 VS Code，重启后生效（最常用）
+make dev        # 开一个加载了本插件的调试窗口，等价于按 F5
 ```
 
-然后按 <kbd>F5</kbd>（或菜单「运行 → 启动调试」），会开一个新的 VS Code 窗口，状态栏右侧就是价格。
+| 命令 | 作用 |
+| --- | --- |
+| `make deps` | 装开发依赖（只有类型定义和 tsc，插件运行时零依赖） |
+| `make typecheck` | 对着真实的 vscode API 类型定义做检查 |
+| `make package` | 打包成 `dist/sol-price-status-bar-<版本>.vsix`（会先跑类型检查） |
+| `make install` | `make package` + `code --install-extension --force` |
+| `make uninstall` | 从本机 VS Code 卸载 |
+| `make dev` | 开调试窗口（等价于 F5） |
+| `make clean` | 删掉 `dist/` |
+| `make version` | 打印插件 id 和版本 |
 
-**装到日常用的 VS Code 里**
+不用 make 也行：`npm install && npx @vscode/vsce package`，然后 `code --install-extension`。
 
-```bash
-cd vs-code-plugin
-npx --yes @vscode/vsce package        # 产出 sol-price-status-bar-1.0.0.vsix
-code --install-extension sol-price-status-bar-1.0.0.vsix
-```
-
-装完重启 VS Code 即可。（`vsce package` 会提醒缺 `icon` 和 `repository` 字段 —— 只在发到 Marketplace 时才需要补，本地装可以忽略。）
+`make package` 只会有一条 `LICENSE not found` 警告 —— 仓库本来没有 LICENSE 文件，本地装可以忽略，发 Marketplace 前再补（同时还要补一个 128×128 的 `icon`）。
 
 ## 设置
 

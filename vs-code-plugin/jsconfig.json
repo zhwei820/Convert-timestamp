@@ -3,9 +3,15 @@
     "module": "commonjs",
     "target": "ES2022",
     "lib": [
-      "ES2022"
+      "ES2022",
+      "DOM"
     ],
     "checkJs": true,
+    // 这是一份普通 JS 插件，不走 strict：显式钉住这几项，
+    // 免得编辑器套用比 tsc 更严的默认值，报出一堆 implicit any 噪音
+    "strict": false,
+    "noImplicitAny": false,
+    "useUnknownInCatchVariables": false,
     "types": [
       "node",
       "vscode"
