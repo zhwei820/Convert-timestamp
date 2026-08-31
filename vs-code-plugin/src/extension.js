@@ -1,23 +1,28 @@
-// 实时价格卡片：在 VS Code 右上角的副侧边栏（secondary sidebar）常驻显示 Solana 最新价
+// SOL 价格状态栏：把 Solana 最新价常驻在 VS Code 状态栏最右端，编辑器开着就一直能看到
 //
-// 位置选型的来龙去脉：VS Code 没把窗口右上角开放给插件 —— StatusBarAlignment 只有 Left/Right
-// 且写死在窗口底部，editor/title 那排图标的文案是 package.json 里的静态值、运行时改不了。
-// 唯一能贴在窗口右边缘、且内容从顶部开始渲染的贡献点是 viewsContainers.secondarySidebar，
-// 所以这里用一个 WebviewView 画卡片。
-//
-// 参考同仓库 Chrome 扩展的 ../src/sol-price-badge.js：三源回落、失败灰显旧价、缓存先点亮
-// 这几条逻辑是一脉相承的；不同的是宿主进程长驻，定时刷新直接用 setInterval，
-// 而且卡片不可见时会把定时器停掉——反正没人看，没必要一直打请求。
+// 相当于 Chrome 扩展里的图标 badge（见 ../src/sol-price-badge.js），但这边的宿主进程不会被回收，
+// 所以定时刷新直接用 setInterval 就行，不需要 chrome.alarms 那套唤醒机制，
+// 刷新频率也不再被 MV3 的 1 分钟下限卡住。
 
 "use strict";
 
 const vscode = require("vscode");
 
 const STORAGE_KEY = "solPrice.snapshot";
-const VIEW_ID = "solPrice.card";
+const ITEM_ID = "solPrice.price";
 const FETCH_TIMEOUT_MS = 8000;
 // 交易所公共行情接口都有限流，间隔太小意义不大还容易被 429
 const MIN_INTERVAL_SECONDS = 5;
+
+// 状态栏的 priority 是「越大越靠左」（见 vscode.d.ts: "Higher values mean the item
+// should be shown more to the left."），所以要钉在最右端得给一个足够小的值。
+// 取 -1e6 而不是 0 / -100，是为了压过别的插件常用的那些负数优先级。
+const PRIORITY_RIGHTMOST = -1000000;
+
+// 涨绿跌红（加密行情通用配色）；想换成 A 股的红涨绿跌，打开 solPrice.invertColors
+const COLOR_UP = "#16a34a";
+const COLOR_DOWN = "#dc2626";
+const COLOR_STALE = "#9ca3af";
 
 // CoinGecko 用的是币种全名 id 而不是代号，这里只兜住常见的几个；
 // 表里没有的币种就跳过 CoinGecko，靠 Binance / OKX 两个源（它们都能按代号直接查）
@@ -36,14 +41,6 @@ const COINGECKO_IDS = {
     TRX: "tron",
 };
 
-/** @type {PriceCardProvider} */
-let provider;
-/** @type {NodeJS.Timeout | undefined} */
-let timer;
-/** @type {vscode.OutputChannel} */
-let output;
-/** @type {vscode.ExtensionContext} */
-let ctx;
 /**
  * @typedef {Object} Snapshot
  * @property {string} symbol   币种代号，比如 SOL
@@ -55,25 +52,34 @@ let ctx;
  * @property {number} updatedAt 抓到这条数据的时刻（epoch ms）
  */
 
+/** @type {vscode.StatusBarItem | undefined} */
+let statusBarItem;
+/** @type {NodeJS.Timeout | undefined} */
+let timer;
+/** @type {vscode.OutputChannel} */
+let output;
+/** @type {vscode.ExtensionContext} */
+let ctx;
 /** @type {Snapshot | null} 最近一次成功拿到的行情，刷新失败时灰着继续显示 */
 let lastSnapshot = null;
-/** @type {string | null} 最近一次失败原因，一次都没成功过时用来在卡片上说明情况 */
-let lastError = null;
 /** 正在请求中，避免手动刷新和定时刷新叠在一起打两次 */
 let inFlight = false;
 let consecutiveFailures = 0;
-/** 卡片当前显示的是不是过期数据 */
+/** 状态栏当前显示的是不是过期数据 */
 let showingStale = false;
 
 // ---------------------------------------------------------------- 配置
 
 function getConfig() {
     const cfg = vscode.workspace.getConfiguration("solPrice");
+    const icon = cfg.get("icon");
     return {
         symbol: normalizeSymbol(cfg.get("symbol") || "SOL"),
         intervalSeconds: Math.max(MIN_INTERVAL_SECONDS, Number(cfg.get("refreshIntervalSeconds")) || 30),
+        showChangePercent: cfg.get("showChangePercent") !== false,
         colorize: cfg.get("colorize") !== false,
         invertColors: cfg.get("invertColors") === true,
+        icon: typeof icon === "string" ? icon.trim() : "$(pulse)",
     };
 }
 
@@ -209,7 +215,7 @@ async function fetchPrice(symbol) {
 
 // ---------------------------------------------------------------- 格式化
 
-// 卡片宽度比状态栏宽松，按量级给足有效位就行
+// 状态栏宽度比 badge 宽松得多，所以按量级给足有效位就行，不用像 badge 那样压到 4 个字符
 /** @param {number} price @returns {string} */
 function formatPrice(price) {
     if (!isFinite(price)) return "—";
@@ -238,321 +244,119 @@ function formatClock(timestamp) {
     return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
 }
 
-// ---------------------------------------------------------------- 卡片
-
-function nonce() {
-    let text = "";
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    for (let i = 0; i < 32; i++) text += chars.charAt(Math.floor(Math.random() * chars.length));
-    return text;
+/** @param {number} timestamp @returns {string} */
+function formatAge(timestamp) {
+    const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+    if (seconds < 60) return seconds + " 秒前";
+    if (seconds < 3600) return Math.round(seconds / 60) + " 分钟前";
+    return Math.round(seconds / 3600) + " 小时前";
 }
 
-function buildHtml() {
-    const n = nonce();
-    // 颜色全部走 VS Code 的主题变量，浅色 / 深色 / 高对比度主题都能自动跟上；
-    // charts-green / charts-red 是主题自带的涨跌色，比写死的十六进制更协调
-    return `<!DOCTYPE html>
-<html lang="zh">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${n}';">
-<style>
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    padding: 14px 12px 16px;
-    font-family: var(--vscode-font-family);
-    color: var(--vscode-foreground);
-    background: transparent;
-  }
-  .pair {
-    font-size: 11px;
-    letter-spacing: .08em;
-    color: var(--vscode-descriptionForeground);
-  }
-  /* 用 vw 让字号跟着侧边栏宽度走：栏拖窄了不会撑破，拖宽了看得更爽 */
-  .price {
-    font-size: clamp(22px, 13vw, 42px);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.15;
-    margin-top: 6px;
-    word-break: break-all;
-  }
-  .change {
-    font-size: clamp(12px, 6vw, 17px);
-    font-variant-numeric: tabular-nums;
-    margin-top: 3px;
-  }
-  .tone-green { color: var(--vscode-charts-green, #16a34a); }
-  .tone-red   { color: var(--vscode-charts-red, #dc2626); }
-  .tone-gray  { color: var(--vscode-descriptionForeground); }
-  .stats {
-    margin-top: 14px;
-    padding-top: 10px;
-    border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35));
-    display: grid;
-    gap: 5px;
-    font-size: 12px;
-  }
-  .row { display: flex; justify-content: space-between; gap: 10px; }
-  .row .k { color: var(--vscode-descriptionForeground); white-space: nowrap; }
-  .row .v { font-variant-numeric: tabular-nums; text-align: right; }
-  .meta {
-    margin-top: 12px;
-    font-size: 11px;
-    line-height: 1.6;
-    color: var(--vscode-descriptionForeground);
-  }
-  .warn { color: var(--vscode-editorWarning-foreground, #cca700); }
-  .err {
-    font-size: 11px;
-    line-height: 1.5;
-    margin-top: 8px;
-    color: var(--vscode-descriptionForeground);
-    word-break: break-all;
-  }
-  .actions { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px; }
-  button {
-    flex: 1 1 auto;
-    min-width: 52px;
-    font-family: inherit;
-    font-size: 11px;
-    padding: 5px 8px;
-    border: none;
-    border-radius: 2px;
-    cursor: pointer;
-    color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
-    background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
-  }
-  button:hover {
-    background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
-  }
-  button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
-  [hidden] { display: none !important; }
-</style>
-</head>
-<body>
-  <div class="pair" id="pair">—</div>
-  <div class="price" id="price">…</div>
-  <div class="change" id="change"></div>
+// ---------------------------------------------------------------- 状态栏
 
-  <div class="stats" id="stats" hidden>
-    <div class="row"><span class="k">24h 高</span><span class="v" id="high">—</span></div>
-    <div class="row"><span class="k">24h 低</span><span class="v" id="low">—</span></div>
-  </div>
-
-  <div class="err" id="err" hidden></div>
-
-  <div class="meta" id="meta"></div>
-
-  <div class="actions">
-    <button data-cmd="refresh" title="重新拉一次行情">刷新</button>
-    <button data-cmd="copy" title="把价格写进剪贴板">复制</button>
-    <button data-cmd="switch" title="换成别的币种">切币种</button>
-  </div>
-
-<script nonce="${n}">
-  const api = acquireVsCodeApi();
-  const $ = (id) => document.getElementById(id);
-  const TONES = ["tone-green", "tone-red", "tone-gray"];
-
-  let updatedAt = 0;
-  let sourceName = "";
-  let staleNote = "";
-
-  function ageText(ms) {
-    const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
-    if (s < 60) return s + " 秒前";
-    if (s < 3600) return Math.round(s / 60) + " 分钟前";
-    return Math.round(s / 3600) + " 小时前";
-  }
-
-  // 「x 秒前」每秒自己走，不用扩展侧每秒推一条消息
-  function paintMeta() {
-    if (!updatedAt) { $("meta").innerHTML = ""; return; }
-    const clock = new Date(updatedAt).toLocaleTimeString("zh-CN", { hour12: false });
-    $("meta").innerHTML =
-      (staleNote ? '<div class="warn">' + staleNote + "</div>" : "") +
-      clock + " 更新（" + ageText(updatedAt) + "）" +
-      (sourceName ? "<br>数据源 " + sourceName : "");
-  }
-
-  function setTone(el, tone) {
-    el.classList.remove(...TONES);
-    if (tone === "green" || tone === "red" || tone === "gray") el.classList.add("tone-" + tone);
-  }
-
-  window.addEventListener("message", (event) => {
-    const m = event.data;
-
-    if (m.type === "loading") {
-      $("pair").textContent = m.symbol + " / USDT";
-      $("price").textContent = "…";
-      setTone($("price"), "none");
-      $("change").textContent = "";
-      $("stats").hidden = true;
-      $("err").hidden = true;
-      updatedAt = 0; sourceName = ""; staleNote = "";
-      paintMeta();
-      return;
-    }
-
-    if (m.type === "error") {
-      $("pair").textContent = m.symbol + " / USDT";
-      $("price").textContent = "—";
-      setTone($("price"), "gray");
-      $("change").textContent = "";
-      $("stats").hidden = true;
-      $("err").hidden = false;
-      $("err").textContent = m.message;
-      updatedAt = 0; sourceName = ""; staleNote = "";
-      paintMeta();
-      return;
-    }
-
-    // m.type === "snapshot"
-    $("pair").textContent = m.symbol + " / USDT";
-    $("price").textContent = "$" + m.priceText;
-    setTone($("price"), m.tone);
-    $("change").textContent = m.changeText ? m.arrow + " " + m.changeText : "—";
-    setTone($("change"), m.tone);
-    $("err").hidden = true;
-
-    if (m.highText && m.lowText) {
-      $("stats").hidden = false;
-      $("high").textContent = m.highText;
-      $("low").textContent = m.lowText;
-    } else {
-      $("stats").hidden = true;
-    }
-
-    updatedAt = m.updatedAt;
-    sourceName = m.source;
-    staleNote = m.staleNote || "";
-    paintMeta();
-  });
-
-  document.querySelectorAll("button").forEach((b) => {
-    b.addEventListener("click", () => api.postMessage({ cmd: b.dataset.cmd }));
-  });
-
-  setInterval(paintMeta, 1000);
-</script>
-</body>
-</html>`;
-}
-
-class PriceCardProvider {
-    constructor() {
-        /** @type {vscode.WebviewView | undefined} */
-        this.view = undefined;
-    }
-
-    /** @param {vscode.WebviewView} webviewView */
-    resolveWebviewView(webviewView) {
-        this.view = webviewView;
-        // 卡片里所有资源都内联，不需要读本地文件，localResourceRoots 直接给空数组收紧 CSP
-        webviewView.webview.options = { enableScripts: true, localResourceRoots: [] };
-        webviewView.webview.html = buildHtml();
-
-        webviewView.webview.onDidReceiveMessage(/** @param {any} msg */ function (msg) {
-            if (!msg) return;
-            if (msg.cmd === "refresh") refresh({ notifyError: true });
-            else if (msg.cmd === "copy") copyPrice();
-            else if (msg.cmd === "switch") switchSymbol();
-        });
-
-        webviewView.onDidChangeVisibility(function () {
-            if (webviewView.visible) {
-                pushState();
-                onCardVisible();
-            } else {
-                // 没人看就别再打请求了
-                stopTimer();
-            }
-        });
-
-        webviewView.onDidDispose(() => {
-            this.view = undefined;
-            stopTimer();
-        });
-
-        pushState();
-        onCardVisible();
-    }
-
-    /** @param {any} message */
-    post(message) {
-        if (this.view) this.view.webview.postMessage(message);
-    }
-
-    get visible() {
-        return !!(this.view && this.view.visible);
-    }
+function createStatusBarItem() {
+    const cfg = getConfig();
+    // 带 id 的这个重载能让 VS Code 记住用户对这一项的显隐 / 拖动位置
+    statusBarItem = vscode.window.createStatusBarItem(
+        ITEM_ID,
+        vscode.StatusBarAlignment.Right,
+        PRIORITY_RIGHTMOST
+    );
+    statusBarItem.name = "SOL 实时价格";
+    statusBarItem.command = "solPrice.showMenu";
+    statusBarItem.text = (cfg.icon ? cfg.icon + " " : "") + cfg.symbol + " …";
+    statusBarItem.tooltip = "正在获取 " + cfg.symbol + " 价格…";
+    statusBarItem.show();
+    ctx.subscriptions.push(statusBarItem);
 }
 
 /**
  * @param {Snapshot} snapshot
  * @param {boolean} isStale
- * @returns {"green" | "red" | "gray" | "none"}
  */
-function toneFor(snapshot, isStale) {
+function render(snapshot, isStale) {
+    if (!statusBarItem) return;
     const cfg = getConfig();
-    if (!cfg.colorize) return "none";
-    if (isStale || !isFinite(snapshot.changePercent)) return "gray";
-    const up = snapshot.changePercent >= 0;
-    // invertColors 打开就是 A 股口径：涨红跌绿
-    if (cfg.invertColors) return up ? "red" : "green";
-    return up ? "green" : "red";
-}
+    showingStale = isStale;
 
-function pushState() {
-    const cfg = getConfig();
+    const parts = [];
+    if (cfg.icon) parts.push(cfg.icon);
+    parts.push(snapshot.symbol + " $" + formatPrice(snapshot.price));
+    const changeText = formatChangePercent(snapshot.changePercent);
+    if (cfg.showChangePercent && changeText) parts.push(changeText);
+    statusBarItem.text = parts.join(" ");
 
-    if (!lastSnapshot || lastSnapshot.symbol !== cfg.symbol) {
-        if (lastError) {
-            provider.post({
-                type: "error",
-                symbol: cfg.symbol,
-                message: "所有数据源都没拿到 —— 可能是币种代号不存在，或者网络 / 代理不通。\n最后一次报错：" +
-                    lastError.slice(0, 200),
-            });
-        } else {
-            provider.post({ type: "loading", symbol: cfg.symbol });
-        }
-        return;
+    if (!cfg.colorize) {
+        statusBarItem.color = undefined;
+    } else if (isStale || !isFinite(snapshot.changePercent)) {
+        statusBarItem.color = COLOR_STALE;
+    } else {
+        const up = snapshot.changePercent >= 0;
+        // invertColors 打开就是 A 股口径：涨红跌绿
+        const positiveColor = cfg.invertColors ? COLOR_DOWN : COLOR_UP;
+        const negativeColor = cfg.invertColors ? COLOR_UP : COLOR_DOWN;
+        statusBarItem.color = up ? positiveColor : negativeColor;
     }
 
-    const hasRange = isFinite(lastSnapshot.high) && isFinite(lastSnapshot.low);
-    const changeText = formatChangePercent(lastSnapshot.changePercent);
-    let arrow = "";
-    if (isFinite(lastSnapshot.changePercent)) arrow = lastSnapshot.changePercent >= 0 ? "▲" : "▼";
+    statusBarItem.tooltip = buildTooltip(snapshot, isStale);
+}
 
-    provider.post({
-        type: "snapshot",
-        symbol: lastSnapshot.symbol,
-        priceText: formatPrice(lastSnapshot.price),
-        changeText: changeText,
-        arrow: arrow,
-        tone: toneFor(lastSnapshot, showingStale),
-        highText: hasRange ? formatPrice(lastSnapshot.high) : "",
-        lowText: hasRange ? formatPrice(lastSnapshot.low) : "",
-        source: lastSnapshot.source,
-        updatedAt: lastSnapshot.updatedAt,
-        staleNote: showingStale
-            ? "⚠ 刷新失败" + (consecutiveFailures > 1 ? "（连续 " + consecutiveFailures + " 次）" : "") +
-              "，下面是旧数据"
-            : "",
-    });
+/**
+ * @param {Snapshot} snapshot
+ * @param {boolean} isStale
+ * @returns {vscode.MarkdownString}
+ */
+function buildTooltip(snapshot, isStale) {
+    const md = new vscode.MarkdownString();
+    // 需要 isTrusted 才能在 tooltip 里点 command: 链接
+    md.isTrusted = true;
+    md.supportThemeIcons = true;
+
+    const changeText = formatChangePercent(snapshot.changePercent) || "—";
+    md.appendMarkdown("**" + snapshot.symbol + " / USDT**\n\n");
+    md.appendMarkdown("价格 　$" + formatPrice(snapshot.price) + "\n\n");
+    md.appendMarkdown("24h 涨跌 　" + changeText + "\n\n");
+    if (isFinite(snapshot.high) && isFinite(snapshot.low)) {
+        md.appendMarkdown("24h 高 / 低 　" + formatPrice(snapshot.high) + " / " + formatPrice(snapshot.low) + "\n\n");
+    }
+    md.appendMarkdown("---\n\n");
+    if (isStale) {
+        md.appendMarkdown("$(warning) 刷新失败" +
+            (consecutiveFailures > 1 ? "（连续 " + consecutiveFailures + " 次）" : "") +
+            "，下面是旧数据\n\n");
+    }
+    md.appendMarkdown("$(clock) " + formatClock(snapshot.updatedAt) + " 更新（" + formatAge(snapshot.updatedAt) +
+        "） · 数据源 " + snapshot.source + "\n\n");
+    md.appendMarkdown("[$(sync) 立即刷新](command:solPrice.refresh) · " +
+        "[$(clippy) 复制价格](command:solPrice.copyPrice) · " +
+        "[$(gear) 设置](command:workbench.action.openSettings?%5B%22solPrice%22%5D)");
+    return md;
+}
+
+/** @param {string} message */
+function renderNoData(message) {
+    if (!statusBarItem) return;
+    const cfg = getConfig();
+    showingStale = true;
+    statusBarItem.text = (cfg.icon ? cfg.icon + " " : "") + cfg.symbol + " —";
+    statusBarItem.color = cfg.colorize ? COLOR_STALE : undefined;
+
+    const md = new vscode.MarkdownString();
+    md.isTrusted = true;
+    md.supportThemeIcons = true;
+    md.appendMarkdown("**" + cfg.symbol + " 价格获取失败**\n\n");
+    md.appendMarkdown("所有数据源都没拿到 —— 可能是币种代号不存在，或者网络 / 代理不通。\n\n");
+    md.appendMarkdown("最后一次的报错：`" + message.slice(0, 160).replace(/`/g, "'") + "`\n\n---\n\n");
+    md.appendMarkdown("[$(sync) 重试](command:solPrice.refresh) · " +
+        "[$(output) 查看日志](command:solPrice.showLog) · " +
+        "[$(gear) 设置](command:workbench.action.openSettings?%5B%22solPrice%22%5D)");
+    statusBarItem.tooltip = md;
 }
 
 // ---------------------------------------------------------------- 刷新
 
 function staleThresholdMs() {
-    // 连着漏两三次才算「旧」，网络抖一下不至于立刻把卡片灰掉
+    // 连着漏两三次才算「旧」，网络抖一下不至于立刻把状态栏灰掉
     return getConfig().intervalSeconds * 1000 * 3;
 }
 
@@ -569,62 +373,98 @@ async function refresh(options) {
         // 请求飞在路上时用户可能已经切了币种，这种情况直接丢弃这次结果
         if (getConfig().symbol !== snapshot.symbol) return;
         lastSnapshot = snapshot;
-        lastError = null;
         consecutiveFailures = 0;
-        showingStale = false;
-        pushState();
+        render(snapshot, false);
         await ctx.globalState.update(STORAGE_KEY, snapshot);
         log("已更新 " + snapshot.symbol + " = " + snapshot.price + "（" + snapshot.source + "）");
     } catch (e) {
         consecutiveFailures++;
         const message = (e && e.message) || String(e);
-        lastError = message;
         log("刷新失败: " + message);
-        // 拉不到就把上一次的价格灰掉继续显示，别让卡片空着——空着比旧价格更容易让人误判
+        // 拉不到就把上一次的价格灰掉继续显示，别让状态栏空着——空徽章比旧价格更容易让人误判
         if (lastSnapshot && lastSnapshot.symbol === symbol && isFinite(lastSnapshot.price)) {
-            showingStale = true;
+            render(lastSnapshot, true);
+        } else {
+            renderNoData(message);
         }
-        pushState();
         if (options && options.notifyError) {
-            vscode.window.showErrorMessage("行情刷新失败：" + message);
+            vscode.window.showErrorMessage("SOL 价格刷新失败：" + message);
         }
     } finally {
         inFlight = false;
     }
 }
 
-function startTimer() {
-    stopTimer();
+function restartTimer() {
+    if (timer) clearInterval(timer);
     const intervalMs = getConfig().intervalSeconds * 1000;
     timer = setInterval(function () {
         refresh();
     }, intervalMs);
 }
 
-function stopTimer() {
-    if (timer) clearInterval(timer);
-    timer = undefined;
-}
-
-/** 卡片露出来时：手上数据过期就立刻补一刷，并把定时器开起来 */
-function onCardVisible() {
-    const stale = !lastSnapshot ||
-        lastSnapshot.symbol !== getConfig().symbol ||
-        Date.now() - lastSnapshot.updatedAt > staleThresholdMs();
-    if (stale) refresh();
-    startTimer();
-}
-
-// 冷启动时先用缓存把卡片点亮，避免第一次请求那几百毫秒里显示一个空壳
+// 冷启动时先用缓存把状态栏点亮，避免第一次请求那几百毫秒里显示一个空壳
 function restoreFromCache() {
     const cached = ctx.globalState.get(STORAGE_KEY);
     if (!cached || !isFinite(cached.price)) return;
     if (cached.symbol !== getConfig().symbol) return;
     lastSnapshot = cached;
-    showingStale = Date.now() - cached.updatedAt > staleThresholdMs();
+    render(cached, Date.now() - cached.updatedAt > staleThresholdMs());
 }
 
 // ---------------------------------------------------------------- 命令
+
+async function showMenu() {
+    const cfg = getConfig();
+    /** @type {any[]} */
+    const items = [];
+    if (lastSnapshot && lastSnapshot.symbol === cfg.symbol) {
+        items.push({
+            label: "$(pulse) " + lastSnapshot.symbol + " $" + formatPrice(lastSnapshot.price),
+            description: formatChangePercent(lastSnapshot.changePercent) || "—",
+            detail: formatClock(lastSnapshot.updatedAt) + " 更新 · 数据源 " + lastSnapshot.source +
+                (showingStale ? " · ⚠ 数据已过期" : ""),
+            action: "refresh",
+        });
+    }
+    items.push(
+        { label: "$(sync) 立即刷新", action: "refresh" },
+        { label: "$(clippy) 复制价格", action: "copy" },
+        { label: "$(arrow-swap) 切换币种…", description: "当前 " + cfg.symbol, action: "switch" },
+        { label: "$(link-external) 打开 Binance 行情页", action: "open" },
+        { label: "$(gear) 插件设置", action: "settings" },
+        { label: "$(output) 查看日志", action: "log" }
+    );
+
+    const picked = await vscode.window.showQuickPick(items, {
+        title: cfg.symbol + " 行情",
+        placeHolder: "选一个操作",
+    });
+    if (!picked) return;
+
+    switch (picked.action) {
+        case "refresh":
+            await refresh({ notifyError: true });
+            break;
+        case "copy":
+            await copyPrice();
+            break;
+        case "switch":
+            await switchSymbol();
+            break;
+        case "open":
+            await vscode.env.openExternal(
+                vscode.Uri.parse("https://www.binance.com/zh-CN/trade/" + cfg.symbol + "_USDT")
+            );
+            break;
+        case "settings":
+            await vscode.commands.executeCommand("workbench.action.openSettings", "solPrice");
+            break;
+        case "log":
+            output.show(true);
+            break;
+    }
+}
 
 async function copyPrice() {
     const cfg = getConfig();
@@ -655,7 +495,7 @@ async function switchSymbol() {
     // 写进全局设置，换个窗口也保持一致
     await vscode.workspace.getConfiguration("solPrice")
         .update("symbol", symbol, vscode.ConfigurationTarget.Global);
-    // 配置变更监听会接着把卡片和定时器都刷新掉
+    // 配置变更监听会接着把状态栏和定时器都刷新掉
 }
 
 /** @param {string} message */
@@ -671,40 +511,36 @@ function onConfigChanged(event) {
 
     if (event.affectsConfiguration("solPrice.symbol")) {
         lastSnapshot = null;
-        lastError = null;
         consecutiveFailures = 0;
         showingStale = false;
+        const cfg = getConfig();
+        if (statusBarItem) {
+            statusBarItem.text = (cfg.icon ? cfg.icon + " " : "") + cfg.symbol + " …";
+            statusBarItem.color = undefined;
+        }
         restoreFromCache();
-        pushState();
         refresh({ notifyError: true });
-    } else {
-        // 纯显示项（颜色 / 反转）改了就用手上的数据重画，不用再打一次请求
-        pushState();
+    } else if (lastSnapshot) {
+        // 纯显示项（图标 / 颜色 / 涨跌幅）改了就用手上的数据重画，不用再打一次请求
+        render(lastSnapshot, showingStale);
     }
 
-    if (event.affectsConfiguration("solPrice.refreshIntervalSeconds") && provider.visible) {
-        startTimer();
+    if (event.affectsConfiguration("solPrice.refreshIntervalSeconds")) {
+        restartTimer();
     }
 }
 
 /** @param {vscode.ExtensionContext} context */
 function activate(context) {
     ctx = context;
-    output = vscode.window.createOutputChannel("实时价格");
-    provider = new PriceCardProvider();
+    output = vscode.window.createOutputChannel("SOL 价格");
+    context.subscriptions.push(output);
 
+    createStatusBarItem();
     restoreFromCache();
 
     context.subscriptions.push(
-        output,
-        // retainContextWhenHidden：侧边栏来回切时卡片不用重新加载，回来就是原样
-        vscode.window.registerWebviewViewProvider(VIEW_ID, provider, {
-            webviewOptions: { retainContextWhenHidden: true },
-        }),
-        vscode.commands.registerCommand("solPrice.show", function () {
-            // <viewId>.focus 是 VS Code 给每个 view 自动生成的命令
-            return vscode.commands.executeCommand(VIEW_ID + ".focus");
-        }),
+        vscode.commands.registerCommand("solPrice.showMenu", showMenu),
         vscode.commands.registerCommand("solPrice.refresh", function () {
             return refresh({ notifyError: true });
         }),
@@ -714,19 +550,21 @@ function activate(context) {
             output.show(true);
         }),
         vscode.workspace.onDidChangeConfiguration(onConfigChanged),
-        // 窗口重新聚焦时，如果卡片正开着而数据已过期就补一刷
+        // 窗口重新聚焦时如果手上的数据已经过期就补一刷：从别处切回 VS Code 立刻看到新价，不用等下一个 tick
         vscode.window.onDidChangeWindowState(function (state) {
-            if (!state.focused || !provider.visible) return;
+            if (!state.focused) return;
             const stale = !lastSnapshot || Date.now() - lastSnapshot.updatedAt > staleThresholdMs();
             if (stale) refresh();
         })
     );
 
-    // 注意这里不主动 refresh：卡片没打开就没人看，等 resolveWebviewView 再开始拉数据
+    refresh();
+    restartTimer();
 }
 
 function deactivate() {
-    stopTimer();
+    if (timer) clearInterval(timer);
+    timer = undefined;
 }
 
 module.exports = { activate, deactivate };

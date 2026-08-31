@@ -1,8 +1,8 @@
 {
   "name": "sol-price-status-bar",
   "displayName": "SOL 实时价格",
-  "description": "在 VS Code 右上角的副侧边栏常驻显示 Solana 实时价格，涨绿跌红，含 24h 涨跌 / 高低点 / 更新时间",
-  "version": "2.0.0",
+  "description": "在 VS Code 状态栏最右端常驻显示 Solana 实时价格，涨绿跌红，悬停看 24h 涨跌 / 高低点 / 更新时间",
+  "version": "3.0.0",
   "publisher": "walter",
   "repository": {
     "type": "git",
@@ -20,6 +20,7 @@
     "sol",
     "crypto",
     "price",
+    "status bar",
     "行情"
   ],
   "main": "./src/extension.js",
@@ -27,75 +28,35 @@
     "onStartupFinished"
   ],
   "contributes": {
-    "viewsContainers": {
-      "secondarySidebar": [
-        {
-          "id": "solPrice",
-          "title": "实时价格",
-          "icon": "media/icon.svg"
-        }
-      ]
-    },
-    "views": {
-      "solPrice": [
-        {
-          "id": "solPrice.card",
-          "name": "实时价格",
-          "type": "webview",
-          "icon": "media/icon.svg"
-        }
-      ]
-    },
-    "menus": {
-      "view/title": [
-        {
-          "command": "solPrice.refresh",
-          "when": "view == solPrice.card",
-          "group": "navigation@1"
-        },
-        {
-          "command": "solPrice.switchSymbol",
-          "when": "view == solPrice.card",
-          "group": "navigation@2"
-        },
-        {
-          "command": "solPrice.showLog",
-          "when": "view == solPrice.card",
-          "group": "1_other@1"
-        }
-      ]
-    },
     "commands": [
       {
-        "command": "solPrice.show",
-        "title": "显示价格卡片",
-        "category": "实时价格"
+        "command": "solPrice.showMenu",
+        "title": "打开菜单",
+        "category": "SOL 价格"
       },
       {
         "command": "solPrice.refresh",
         "title": "立即刷新",
-        "category": "实时价格",
-        "icon": "$(sync)"
+        "category": "SOL 价格"
       },
       {
         "command": "solPrice.copyPrice",
         "title": "复制当前价格",
-        "category": "实时价格"
+        "category": "SOL 价格"
       },
       {
         "command": "solPrice.switchSymbol",
         "title": "切换币种",
-        "category": "实时价格",
-        "icon": "$(arrow-swap)"
+        "category": "SOL 价格"
       },
       {
         "command": "solPrice.showLog",
         "title": "查看日志",
-        "category": "实时价格"
+        "category": "SOL 价格"
       }
     ],
     "configuration": {
-      "title": "实时价格",
+      "title": "SOL 实时价格",
       "properties": {
         "solPrice.symbol": {
           "type": "string",
@@ -108,17 +69,27 @@
           "type": "number",
           "default": 30,
           "minimum": 5,
-          "markdownDescription": "自动刷新间隔（秒）。低于 5 秒会被抬回 5 秒，避免被交易所限流。卡片不可见时会自动暂停刷新。"
+          "markdownDescription": "自动刷新间隔（秒）。低于 5 秒会被抬回 5 秒，避免被交易所限流。"
+        },
+        "solPrice.showChangePercent": {
+          "type": "boolean",
+          "default": true,
+          "description": "状态栏里是否跟着显示 24h 涨跌幅。"
         },
         "solPrice.colorize": {
           "type": "boolean",
           "default": true,
-          "description": "是否按涨跌给价格上色（涨绿跌红）。关掉则用主题的默认前景色。"
+          "description": "是否按涨跌给文字上色（涨绿跌红）。关掉则跟随主题的状态栏前景色。"
         },
         "solPrice.invertColors": {
           "type": "boolean",
           "default": false,
           "description": "把配色换成 A 股习惯的「红涨绿跌」。"
+        },
+        "solPrice.icon": {
+          "type": "string",
+          "default": "$(pulse)",
+          "markdownDescription": "价格前面的图标，用 VS Code 的 codicon 语法，例如 `$(pulse)`、`$(graph)`、`$(flame)`。留空则不显示图标。"
         }
       }
     }
