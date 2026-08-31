@@ -1,0 +1,124 @@
+{
+  "name": "sol-price-status-bar",
+  "displayName": "SOL 实时价格",
+  "description": "在 VS Code 状态栏常驻显示 Solana 实时价格，涨绿跌红，悬停查看 24h 涨跌 / 高低点 / 更新时间",
+  "version": "1.0.0",
+  "publisher": "walter",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhwei820/Convert-timestamp.git",
+    "directory": "vs-code-plugin"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "solana",
+    "sol",
+    "crypto",
+    "price",
+    "status bar",
+    "行情"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "solPrice.showMenu",
+        "title": "SOL 价格：打开菜单",
+        "category": "SOL 价格"
+      },
+      {
+        "command": "solPrice.refresh",
+        "title": "SOL 价格：立即刷新",
+        "category": "SOL 价格"
+      },
+      {
+        "command": "solPrice.copyPrice",
+        "title": "SOL 价格：复制当前价格",
+        "category": "SOL 价格"
+      },
+      {
+        "command": "solPrice.switchSymbol",
+        "title": "SOL 价格：切换币种",
+        "category": "SOL 价格"
+      },
+      {
+        "command": "solPrice.showLog",
+        "title": "SOL 价格：查看日志",
+        "category": "SOL 价格"
+      }
+    ],
+    "configuration": {
+      "title": "SOL 实时价格",
+      "properties": {
+        "solPrice.symbol": {
+          "type": "string",
+          "default": "SOL",
+          "pattern": "^[A-Za-z0-9]{2,12}$",
+          "patternErrorMessage": "只填币种代号本身，比如 SOL / BTC / ETH，不要带 USDT",
+          "markdownDescription": "要显示的币种代号（对 USDT 计价）。填 `SOL`、`BTC`、`ETH` 之类，不要带 `USDT` 后缀。"
+        },
+        "solPrice.refreshIntervalSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "markdownDescription": "自动刷新间隔（秒）。低于 5 秒会被抬回 5 秒，避免被交易所限流。"
+        },
+        "solPrice.alignment": {
+          "type": "string",
+          "default": "right",
+          "enum": [
+            "right",
+            "left"
+          ],
+          "enumDescriptions": [
+            "状态栏右侧",
+            "状态栏左侧"
+          ],
+          "description": "状态栏里的对齐方向。改完立即生效。"
+        },
+        "solPrice.priority": {
+          "type": "number",
+          "default": 1000,
+          "markdownDescription": "状态栏排序权重，**数值越大越靠左**。默认 `1000` 会把价格顶到右侧一组的最左边（最显眼的位置）。"
+        },
+        "solPrice.showChangePercent": {
+          "type": "boolean",
+          "default": true,
+          "description": "状态栏里是否跟着显示 24h 涨跌幅。"
+        },
+        "solPrice.colorize": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否按涨跌给文字上色（涨绿跌红）。关掉则跟随主题的状态栏前景色。"
+        },
+        "solPrice.invertColors": {
+          "type": "boolean",
+          "default": false,
+          "description": "把配色换成 A 股习惯的「红涨绿跌」。"
+        },
+        "solPrice.icon": {
+          "type": "string",
+          "default": "$(pulse)",
+          "markdownDescription": "价格前面的图标，用 VS Code 的 codicon 语法，例如 `$(pulse)`、`$(graph)`、`$(flame)`。留空则不显示图标。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p jsconfig.json",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.9.3"
+  }
+}

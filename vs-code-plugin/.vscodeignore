@@ -1,0 +1,9 @@
+.vscode/**
+.gitignore
+jsconfig.json
+Makefile
+dist/**
+node_modules/**
+package-lock.json
+**/*.vsix
+.DS_Store
