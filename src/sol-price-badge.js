@@ -41,13 +41,18 @@ const SOL_SOURCES = [
     },
 ];
 
-// badge 实际只放得下约 4 个字符，按价格量级动态砍精度
+// badge 里多显示几位小数。Chrome 官方口径是「badge 大约只放得下 4 个字符」，
+// 带小数后是 5 个字符，个别 Chrome 版本 / 屏幕缩放下最后一位可能被裁掉；
+// 真被裁了就把这个值改成 0，即可退回原来的整数显示。
+const SOL_BADGE_DECIMALS = 1;
+
+// 按价格量级动态砍精度，保证宽度恒定：越贵的币小数位越少
 function formatBadgePrice(price) {
     if (price >= 10000) return Math.round(price / 1000) + "k";
     if (price >= 1000) return (price / 1000).toFixed(1) + "k";
-    if (price >= 100) return String(Math.round(price));
-    if (price >= 10) return price.toFixed(1);
-    return price.toFixed(2);
+    if (price >= 100) return price.toFixed(SOL_BADGE_DECIMALS);
+    if (price >= 10) return price.toFixed(SOL_BADGE_DECIMALS + 1);
+    return price.toFixed(SOL_BADGE_DECIMALS + 2);
 }
 
 function formatChangePercent(changePercent) {
