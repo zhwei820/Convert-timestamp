@@ -232,6 +232,34 @@ document.addEventListener("DOMContentLoaded", function () {
   focusAndSelect();
 });
 
+// 「打开『请求复制』面板」按钮
+// Chrome 没有给扩展主动打开 DevTools 的 API，所以这里只能按当前平台
+// 给出快捷键提示；点按钮时把提示高亮一下，提醒用户打开后要切到面板标签页。
+function setupDevtoolsPanelShortcut() {
+  const button = document.getElementById("openDevtoolsPanel");
+  const hint = document.getElementById("devtoolsHint");
+  if (!button || !hint) return;
+
+  const platform =
+    (navigator.userAgentData && navigator.userAgentData.platform) ||
+    navigator.platform ||
+    navigator.userAgent;
+  const shortcut = /Mac|iPhone|iPad/i.test(platform)
+    ? "⌥ + ⌘ + I"
+    : "F12（或 Ctrl + Shift + I）";
+  const message = `按 ${shortcut} 打开 DevTools，再切到「请求复制」标签页`;
+
+  hint.textContent = message;
+
+  button.onclick = function () {
+    hint.textContent = message;
+    hint.style.color = "#5e44d1";
+    setTimeout(function () {
+      hint.style.color = "#666";
+    }, 1500);
+  };
+}
+
 function focusAndSelect() {
   // 获取输入框元素
   const input = document.getElementById("input");
