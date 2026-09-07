@@ -8,23 +8,10 @@ document.addEventListener("DOMContentLoaded", function () {
   const addDayButton = document.getElementById("addDayButton");
   const subDayButton = document.getElementById("subDayButton");
   const timestampUnit = document.getElementById("timestampUnit");
-  const autoCopyCheckbox = document.getElementById("autoCopyOnSelect");
   // const copyButton = document.getElementById("btn001");
   // copyButton.onclick = focusAndSelect;
 
-  // 选中网页文字自动复制到剪贴板：默认开启；通过 chrome.storage 与 content script 同步
   if (chrome && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(["autoCopyOnSelect"], function (result) {
-      const enabled = result.autoCopyOnSelect !== false;
-      autoCopyCheckbox.checked = enabled;
-      if (result.autoCopyOnSelect === undefined) {
-        chrome.storage.local.set({ autoCopyOnSelect: enabled });
-      }
-    });
-    autoCopyCheckbox.addEventListener("change", function () {
-      chrome.storage.local.set({ autoCopyOnSelect: autoCopyCheckbox.checked });
-    });
-
     // 知乎自动朗读：默认开启
     const zhihuReadAloudCheckbox = document.getElementById("zhihuReadAloud");
     chrome.storage.local.get(["zhihuReadAloudEnabled"], function (result) {
@@ -36,6 +23,8 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
   }
+
+  setupDevtoolsPanelShortcut();
 
   // Set focus to input field and select content when popup opens
 

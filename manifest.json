@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "时间戳转化",
   "version": "1.3.0",
-  "description": "时间戳与日期双向转换工具，支持弹窗输入、选中文字右键菜单转换、自动复制结果，内置 GitLab Pipeline 状态监控、Gmail 新邮件通知、DevTools 请求复制面板与工具栏 SOL 实时价格徽章",
+  "description": "时间戳与日期双向转换工具，支持弹窗输入、选中文字右键菜单转换，内置 GitLab Pipeline 状态监控、Gmail 新邮件通知、DevTools 请求复制面板与工具栏 SOL 实时价格徽章",
   "action": {
     "default_popup": "src/popup.html"
   },

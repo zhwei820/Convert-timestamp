@@ -58,6 +58,18 @@
       button:hover {
         background-color: #357abd;
       }
+      #openDevtoolsPanel {
+        padding: 6px 10px;
+        background-color: #5e44d1;
+      }
+      #openDevtoolsPanel:hover {
+        background-color: #4a34ad;
+      }
+      #devtoolsHint {
+        font-size: 12px;
+        color: #666;
+        line-height: 1.4;
+      }
     </style>
   </head>
   <body>
@@ -92,12 +104,12 @@
         <input type="text" id="utc0Time" readonly />
       </div>
       <div class="input-group" style="flex-direction: row; align-items: center; gap: 6px;">
-        <input type="checkbox" id="autoCopyOnSelect" checked style="width: auto;" />
-        <label for="autoCopyOnSelect" style="cursor: pointer;">选中网页文字自动复制到剪贴板</label>
-      </div>
-      <div class="input-group" style="flex-direction: row; align-items: center; gap: 6px;">
         <input type="checkbox" id="zhihuReadAloud" checked style="width: auto;" />
         <label for="zhihuReadAloud" style="cursor: pointer;">知乎自动朗读问题和答案</label>
+      </div>
+      <div class="input-group" style="margin-top: 4px;">
+        <button id="openDevtoolsPanel" type="button">🛠 打开「请求复制」面板</button>
+        <span id="devtoolsHint"></span>
       </div>
     </div>
     <script src="utils.js"></script>
