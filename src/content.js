@@ -31,3 +31,29 @@ window.addEventListener("mouseup", function () {
         }
     } catch (e) {}
 });
+
+// xterm.js 终端：选区只存在 xterm 内部（canvas 渲染），DOM 里拿不到。
+// 借 xterm 在 helper textarea 上注册的 copy 处理，由它把选区写入剪贴板。
+// 该处理没选区时也会写入空串，所以只在拖选 / 双击三击后触发，避免普通点击清空剪贴板。
+let xtermDown = null;
+
+window.addEventListener("mousedown", function (e) {
+    let root = e.button === 0 && e.target.closest && e.target.closest(".xterm");
+    xtermDown = root ? { root: root, x: e.clientX, y: e.clientY } : null;
+}, true);
+
+window.addEventListener("mouseup", function (e) {
+    let down = xtermDown;
+    xtermDown = null;
+    if (!down) return;
+    let dragged = Math.abs(e.clientX - down.x) + Math.abs(e.clientY - down.y) > 3;
+    if (!dragged && e.detail < 2) return;
+
+    let ta = down.root.querySelector(".xterm-helper-textarea");
+    if (!ta) return;
+    // 等 xterm 自己的 mouseup 处理完选区
+    setTimeout(function () {
+        ta.focus();
+        document.execCommand("copy");
+    }, 0);
+}, true);
