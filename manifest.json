@@ -32,6 +32,17 @@
         "*://*/*"
       ],
       "js": [
+        "src/xterm-osc52.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*/*"
+      ],
+      "js": [
         "src/gitlab-pipeline-monitor.js"
       ],
       "run_at": "document_idle",

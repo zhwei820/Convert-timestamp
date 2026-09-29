@@ -39,6 +39,12 @@ let xtermDown = null;
 
 window.addEventListener("mousedown", function (e) {
     let root = e.button === 0 && e.target.closest && e.target.closest(".xterm");
+    // 终端内程序（zellij 等）开了鼠标模式时 xterm 不做选区，复制由 xterm-osc52.js 走 OSC 52；
+    // 按住 Shift/Option 时 xterm 会强制自己选区，照常处理
+    if (root && root.classList.contains("enable-mouse-events") && !e.shiftKey && !e.altKey) {
+        console.log("[content.js] xterm 处于鼠标模式，交给 OSC 52 复制");
+        root = null;
+    }
     xtermDown = root ? { root: root, x: e.clientX, y: e.clientY } : null;
 }, true);
 
