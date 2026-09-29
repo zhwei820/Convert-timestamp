@@ -47,13 +47,25 @@ window.addEventListener("mouseup", function (e) {
     xtermDown = null;
     if (!down) return;
     let dragged = Math.abs(e.clientX - down.x) + Math.abs(e.clientY - down.y) > 3;
-    if (!dragged && e.detail < 2) return;
+    if (!dragged && e.detail < 2) {
+        console.log("[content.js] xterm 单击，不复制");
+        return;
+    }
 
     let ta = down.root.querySelector(".xterm-helper-textarea");
-    if (!ta) return;
+    if (!ta) {
+        console.warn("[content.js] xterm 未找到 .xterm-helper-textarea，跳过复制");
+        return;
+    }
     // 等 xterm 自己的 mouseup 处理完选区
     setTimeout(function () {
+        // 冒泡阶段读 xterm 写入的内容，只为日志
+        window.addEventListener("copy", function (ev) {
+            let text = ev.clipboardData ? ev.clipboardData.getData("text/plain") : "";
+            console.log("[content.js] xterm 复制内容(" + text.length + " 字符):", text);
+        }, { once: true });
         ta.focus();
-        document.execCommand("copy");
+        let ok = document.execCommand("copy");
+        console.log("[content.js] xterm execCommand('copy') =", ok, dragged ? "拖选" : "多击 detail=" + e.detail);
     }, 0);
 }, true);
