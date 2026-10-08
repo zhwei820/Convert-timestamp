@@ -3,12 +3,13 @@ console.log("[background] service worker booting");
 importScripts("utils.js", "sol-price-badge.js");
 
 let titleId = "convert";
+let convertMenuTitle = "时间戳转换";
 let translateMenuId = "translate";
 
 try {
     if (chrome.contextMenus && chrome.contextMenus.create) {
         chrome.contextMenus.create({
-            title: "时间戳转换",
+            title: convertMenuTitle,
             id: titleId,
             contexts: ["selection"],
         });
@@ -66,9 +67,11 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     try {
         chrome.storage.local.get(["timestampJudgeType"], function (res) {
             const judgeType = (res && res.timestampJudgeType) || "3";
-            const convertStr = convert(message, judgeType) + " ";
+            const convertStr = String(convert(message, judgeType));
+            // 选中的不是时间（如英文单词）会转出 NaN / Invalid Date，此时保留原菜单名
+            const valid = convertStr.trim() && !/NaN|Invalid Date/.test(convertStr);
             chrome.contextMenus.update(titleId, {
-                "title": convertStr,
+                "title": valid ? convertStr + " " : convertMenuTitle,
             });
         });
         // 选区不含英文字母时隐藏翻译菜单；空串是普通点击，此时菜单本就不显示，不动它
