@@ -11,12 +11,15 @@
     "storage",
     "notifications",
     "contextMenus",
-    "alarms"
+    "alarms",
+    "activeTab",
+    "scripting"
   ],
   "host_permissions": [
     "https://api.binance.com/*",
     "https://api.coingecko.com/*",
-    "https://api.cognitive.microsofttranslator.com/*"
+    "https://api.cognitive.microsofttranslator.com/*",
+    "https://*.tts.speech.microsoft.com/*"
   ],
   "content_scripts": [
     {

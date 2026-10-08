@@ -3,51 +3,52 @@ console.log("[background] service worker booting");
 importScripts("utils.js", "sol-price-badge.js");
 
 let titleId = "convert";
-let convertMenuTitle = "时间戳转换";
-let translateMenuId = "translate";
+let translateMenuTitle = "翻译「%s」";
 
-try {
-    if (chrome.contextMenus && chrome.contextMenus.create) {
+// 只注册一项：扩展有两项及以上时浏览器会把它们收进二级菜单。
+// 点击时按选区内容决定转换时间戳还是翻译，标题只是提示，过期也不影响点击行为
+if (chrome.contextMenus && chrome.contextMenus.removeAll) {
+    chrome.contextMenus.removeAll(function () {
         chrome.contextMenus.create({
-            title: convertMenuTitle,
+            title: translateMenuTitle,
             id: titleId,
             contexts: ["selection"],
         });
-        chrome.contextMenus.create({
-            title: "翻译「%s」",
-            id: translateMenuId,
-            contexts: ["selection"],
-        });
-    } else {
-        console.warn("[background] chrome.contextMenus unavailable");
-    }
-} catch (e) {
-    // 已存在的菜单 id 重复注册会抛错，忽略即可
-    console.warn("[background] contextMenus.create error:", e && e.message);
+    });
+} else {
+    console.warn("[background] chrome.contextMenus unavailable");
+}
+
+// 非时间文本（如英文单词）会转出 NaN / Invalid Date
+function convertSelection(text, callback) {
+    chrome.storage.local.get(["timestampJudgeType"], function (res) {
+        const judgeType = (res && res.timestampJudgeType) || "3";
+        const convertStr = String(convert(text, judgeType));
+        const valid = !!convertStr.trim() && !/NaN|Invalid Date/.test(convertStr);
+        callback(valid ? convertStr : null);
+    });
 }
 
 if (chrome.contextMenus && chrome.contextMenus.onClicked) {
     chrome.contextMenus.onClicked.addListener(function (info, tab) {
-        if (info.menuItemId === translateMenuId) {
-            translateSelection(info, tab);
-            return;
-        }
         if (info.menuItemId !== titleId) return;
-        // service worker 没有 localStorage 也没有 alert，菜单回调只用来把转换结果存到 chrome.storage 供 popup 读取
-        try {
-            chrome.storage.local.get(["timestampJudgeType"], function (res) {
-                const judgeType = (res && res.timestampJudgeType) || "3";
-                const convertStr = convert(info.selectionText, judgeType);
-                chrome.storage.local.set({ selectText: convertStr });
-            });
-        } catch (e) {
-            console.error("[background] contextMenus.onClicked error:", e);
-        }
+        convertSelection(info.selectionText, function (convertStr) {
+            if (convertStr === null) {
+                translateSelection(info, tab);
+                return;
+            }
+            // service worker 没有 localStorage 也没有 alert，转换结果存到 chrome.storage 供 popup 读取
+            chrome.storage.local.set({ selectText: convertStr });
+        });
     });
 }
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     console.log("[background] onMessage received:", message);
+    if (message && typeof message === "object" && message.type === "translate-tts") {
+        synthesizeSpeech(message.text, sendResponse);
+        return true;
+    }
     if (message && typeof message === "object" && message.type === "gitlab-pipeline-finished") {
         try {
             handleGitlabPipelineFinished(message, sender);
@@ -64,26 +65,63 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         }
         return;
     }
+    // 空串是普通点击，此时菜单本就不显示，不动它
+    if (typeof message !== "string" || !message.trim()) return;
     try {
-        chrome.storage.local.get(["timestampJudgeType"], function (res) {
-            const judgeType = (res && res.timestampJudgeType) || "3";
-            const convertStr = String(convert(message, judgeType));
-            // 选中的不是时间（如英文单词）会转出 NaN / Invalid Date，此时保留原菜单名
-            const valid = convertStr.trim() && !/NaN|Invalid Date/.test(convertStr);
+        convertSelection(message, function (convertStr) {
             chrome.contextMenus.update(titleId, {
-                "title": valid ? convertStr + " " : convertMenuTitle,
+                "title": convertStr === null ? translateMenuTitle : convertStr + " ",
             });
         });
-        // 选区不含英文字母时隐藏翻译菜单；空串是普通点击，此时菜单本就不显示，不动它
-        if (typeof message === "string" && message.trim()) {
-            chrome.contextMenus.update(translateMenuId, { visible: /[A-Za-z]/.test(message) });
-        }
     } catch (e) {
         console.error("[background] context menu update threw:", e);
     }
 });
 
 const DEFAULT_TRANSLATOR_REGION = "eastus";
+const DEFAULT_SPEECH_REGION = "eastus";
+const SPEECH_VOICE = "en-US-JennyNeural";
+
+// Azure TTS 合成 mp3，以 data URL 回给页面播放；未配置 key 或失败时页面退回浏览器自带语音
+function synthesizeSpeech(rawText, sendResponse) {
+    const text = String(rawText || "").trim();
+    chrome.storage.local.get(["azureSpeechKey", "azureSpeechRegion"], function (res) {
+        const key = ((res && res.azureSpeechKey) || "").trim();
+        const region = ((res && res.azureSpeechRegion) || DEFAULT_SPEECH_REGION).trim();
+        if (!key || !text) {
+            sendResponse({ error: "未配置 Azure Speech Key" });
+            return;
+        }
+        const escaped = text.replace(/[<>&'"]/g, function (c) {
+            return { "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" }[c];
+        });
+        fetch("https://" + region + ".tts.speech.microsoft.com/cognitiveservices/v1", {
+            method: "POST",
+            headers: {
+                "Ocp-Apim-Subscription-Key": key,
+                "Content-Type": "application/ssml+xml",
+                "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
+            },
+            body: "<speak version='1.0' xml:lang='en-US'><voice name='" + SPEECH_VOICE + "'>" + escaped + "</voice></speak>",
+        })
+            .then(function (resp) {
+                if (!resp.ok) throw new Error("HTTP " + resp.status);
+                return resp.arrayBuffer();
+            })
+            .then(function (buf) {
+                const bytes = new Uint8Array(buf);
+                let binary = "";
+                for (let i = 0; i < bytes.length; i += 0x8000) {
+                    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+                }
+                sendResponse({ audio: "data:audio/mpeg;base64," + btoa(binary) });
+            })
+            .catch(function (e) {
+                console.warn("[background] Azure TTS failed:", e);
+                sendResponse({ error: e && e.message });
+            });
+    });
+}
 const SINGLE_WORD = /^[A-Za-z][A-Za-z'-]*$/;
 
 // 单词走词典接口取置信度前三的义项：/translate 对单词只给一个不看语境的译文（acquire → 收购）
@@ -138,24 +176,123 @@ function translateSelection(info, tab) {
     });
 }
 
-// 结果交给选区所在 frame 的 content.js 浮层展示；chrome:// 等注入不了的页面退化为系统通知
+// 点击菜单时直接往选区所在 frame 注入浮层（activeTab 授权），不依赖页面里已有的 content.js：
+// 扩展重载后未刷新的页面里 content.js 已失效
 function showTranslation(tab, frameId, payload) {
-    const notify = function () {
-        chrome.notifications.create("translate-" + Date.now(), {
-            type: "basic",
-            iconUrl: chrome.runtime.getURL("img/WechatIMG750.jpg"),
-            title: payload.source,
-            message: payload.error || payload.translation,
-        });
-    };
     if (!tab || tab.id === undefined || tab.id < 0) {
-        notify();
+        console.warn("[background] translate: no tab to show result", payload);
         return;
     }
-    const message = Object.assign({ type: "translate-result" }, payload);
-    chrome.tabs.sendMessage(tab.id, message, { frameId: frameId || 0 }, function () {
-        if (chrome.runtime.lastError) notify();
+    chrome.scripting.executeScript(
+        {
+            target: { tabId: tab.id, frameIds: [frameId || 0] },
+            func: renderTranslatePopup,
+            args: [payload],
+        },
+        function () {
+            if (chrome.runtime.lastError) {
+                console.warn("[background] translate popup inject failed:", chrome.runtime.lastError.message, payload);
+            }
+        }
+    );
+}
+
+// 序列化后在页面里执行，只能用参数和页面全局
+function renderTranslatePopup(payload) {
+    let old = document.getElementById("__ct-translate-popup");
+    if (old) old.remove();
+
+    let box = document.createElement("div");
+    box.id = "__ct-translate-popup";
+    box.style.cssText = "position:fixed;z-index:2147483647;max-width:320px;padding:10px 12px;" +
+        "background:#fff;color:#222;border:1px solid #ddd;border-radius:6px;" +
+        "box-shadow:0 4px 16px rgba(0,0,0,.18);font:14px/1.5 -apple-system,Arial,sans-serif;" +
+        "text-align:left;white-space:pre-wrap;word-break:break-word;";
+
+    let header = document.createElement("div");
+    header.style.cssText = "display:flex;align-items:flex-start;gap:6px;margin-bottom:4px;";
+    let source = document.createElement("div");
+    source.style.cssText = "flex:1;color:#888;font-size:12px;";
+    source.textContent = payload.source;
+    let speakBtn = document.createElement("button");
+    speakBtn.type = "button";
+    speakBtn.title = "朗读";
+    speakBtn.textContent = "🔊";
+    speakBtn.style.cssText = "flex:none;padding:0 2px;border:none;background:none;cursor:pointer;font-size:14px;line-height:1.4;";
+    header.appendChild(source);
+    header.appendChild(speakBtn);
+
+    let audio = null;
+    let audioUrl = null;
+    function speakWithBrowser() {
+        if (!window.speechSynthesis) return;
+        speechSynthesis.cancel();
+        let u = new SpeechSynthesisUtterance(payload.source);
+        u.lang = "en-US";
+        speechSynthesis.speak(u);
+    }
+    function playAudio() {
+        if (audio) audio.pause();
+        audio = new Audio(audioUrl);
+        // 页面 CSP 禁 data: 媒体时播放会失败
+        audio.play().catch(speakWithBrowser);
+    }
+    speakBtn.addEventListener("click", function () {
+        if (audioUrl) {
+            playAudio();
+            return;
+        }
+        try {
+            chrome.runtime.sendMessage({ type: "translate-tts", text: payload.source }, function (resp) {
+                if (chrome.runtime.lastError || !resp || !resp.audio) {
+                    speakWithBrowser();
+                    return;
+                }
+                audioUrl = resp.audio;
+                playAudio();
+            });
+        } catch (e) {
+            speakWithBrowser();
+        }
     });
+    let result = document.createElement("div");
+    result.style.color = payload.error ? "#d33" : "#222";
+    result.textContent = payload.error || payload.translation;
+    box.appendChild(header);
+    box.appendChild(result);
+    document.documentElement.appendChild(box);
+
+    // 定位到选区下方；input/textarea 里的选区拿不到矩形，用输入框本身
+    let rect = null;
+    let active = document.activeElement;
+    if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) {
+        rect = active.getBoundingClientRect();
+    } else {
+        let sel = window.getSelection();
+        if (sel && sel.rangeCount) rect = sel.getRangeAt(0).getBoundingClientRect();
+    }
+    if (!rect || (!rect.width && !rect.height)) {
+        rect = { left: window.innerWidth / 2 - box.offsetWidth / 2, top: window.innerHeight / 3, bottom: window.innerHeight / 3 };
+    }
+    let left = Math.max(8, Math.min(rect.left, window.innerWidth - box.offsetWidth - 8));
+    let top = rect.bottom + 8;
+    if (top + box.offsetHeight > window.innerHeight - 8) {
+        top = Math.max(8, rect.top - box.offsetHeight - 8);
+    }
+    box.style.left = left + "px";
+    box.style.top = top + "px";
+
+    function close(e) {
+        if (e.type === "keydown" && e.key !== "Escape") return;
+        if (e.type === "mousedown" && box.contains(e.target)) return;
+        box.remove();
+        if (audio) audio.pause();
+        if (window.speechSynthesis) speechSynthesis.cancel();
+        window.removeEventListener("mousedown", close, true);
+        window.removeEventListener("keydown", close, true);
+    }
+    window.addEventListener("mousedown", close, true);
+    window.addEventListener("keydown", close, true);
 }
 
 const STATUS_LABEL = {

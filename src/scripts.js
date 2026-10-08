@@ -23,10 +23,10 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
 
-    ["azureTranslatorKey", "azureTranslatorRegion"].forEach(function (id) {
+    ["azureTranslatorKey", "azureTranslatorRegion", "azureSpeechKey", "azureSpeechRegion"].forEach(function (id) {
       const field = document.getElementById(id);
       chrome.storage.local.get([id], function (result) {
-        field.value = result[id] || (id === "azureTranslatorRegion" ? "eastus" : "");
+        field.value = result[id] || (/Region$/.test(id) ? "eastus" : "");
       });
       field.addEventListener("change", function () {
         chrome.storage.local.set({ [id]: field.value.trim() });
