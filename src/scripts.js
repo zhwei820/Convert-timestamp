@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ["azureTranslatorKey", "azureTranslatorRegion"].forEach(function (id) {
       const field = document.getElementById(id);
       chrome.storage.local.get([id], function (result) {
-        field.value = result[id] || "";
+        field.value = result[id] || (id === "azureTranslatorRegion" ? "eastus" : "");
       });
       field.addEventListener("change", function () {
         chrome.storage.local.set({ [id]: field.value.trim() });

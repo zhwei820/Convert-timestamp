@@ -80,6 +80,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     }
 });
 
+const DEFAULT_TRANSLATOR_REGION = "eastus";
 const SINGLE_WORD = /^[A-Za-z][A-Za-z'-]*$/;
 
 // 单词走词典接口取置信度前三的义项：/translate 对单词只给一个不看语境的译文（acquire → 收购）
@@ -87,7 +88,7 @@ function translateSelection(info, tab) {
     const text = (info.selectionText || "").trim();
     chrome.storage.local.get(["azureTranslatorKey", "azureTranslatorRegion"], function (res) {
         const key = ((res && res.azureTranslatorKey) || "").trim();
-        const region = ((res && res.azureTranslatorRegion) || "").trim();
+        const region = ((res && res.azureTranslatorRegion) || DEFAULT_TRANSLATOR_REGION).trim();
         if (!key) {
             showTranslation(tab, info.frameId, { source: text, error: "未配置 Azure Translator Key，请在扩展弹窗中填写" });
             return;
