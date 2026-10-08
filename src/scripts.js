@@ -22,6 +22,16 @@ document.addEventListener("DOMContentLoaded", function () {
         zhihuReadAloudEnabled: zhihuReadAloudCheckbox.checked,
       });
     });
+
+    ["azureTranslatorKey", "azureTranslatorRegion"].forEach(function (id) {
+      const field = document.getElementById(id);
+      chrome.storage.local.get([id], function (result) {
+        field.value = result[id] || "";
+      });
+      field.addEventListener("change", function () {
+        chrome.storage.local.set({ [id]: field.value.trim() });
+      });
+    });
   }
 
   setupDevtoolsPanelShortcut();

@@ -3,12 +3,18 @@ console.log("[background] service worker booting");
 importScripts("utils.js", "sol-price-badge.js");
 
 let titleId = "convert";
+let translateMenuId = "translate";
 
 try {
     if (chrome.contextMenus && chrome.contextMenus.create) {
         chrome.contextMenus.create({
             title: "时间戳转换",
             id: titleId,
+            contexts: ["selection"],
+        });
+        chrome.contextMenus.create({
+            title: "翻译「%s」",
+            id: translateMenuId,
             contexts: ["selection"],
         });
     } else {
@@ -20,7 +26,11 @@ try {
 }
 
 if (chrome.contextMenus && chrome.contextMenus.onClicked) {
-    chrome.contextMenus.onClicked.addListener(function (info) {
+    chrome.contextMenus.onClicked.addListener(function (info, tab) {
+        if (info.menuItemId === translateMenuId) {
+            translateSelection(info, tab);
+            return;
+        }
         if (info.menuItemId !== titleId) return;
         // service worker 没有 localStorage 也没有 alert，菜单回调只用来把转换结果存到 chrome.storage 供 popup 读取
         try {
@@ -61,10 +71,88 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
                 "title": convertStr,
             });
         });
+        // 选区不含英文字母时隐藏翻译菜单；空串是普通点击，此时菜单本就不显示，不动它
+        if (typeof message === "string" && message.trim()) {
+            chrome.contextMenus.update(translateMenuId, { visible: /[A-Za-z]/.test(message) });
+        }
     } catch (e) {
         console.error("[background] context menu update threw:", e);
     }
 });
+
+const SINGLE_WORD = /^[A-Za-z][A-Za-z'-]*$/;
+
+// 单词走词典接口取置信度前三的义项：/translate 对单词只给一个不看语境的译文（acquire → 收购）
+function translateSelection(info, tab) {
+    const text = (info.selectionText || "").trim();
+    chrome.storage.local.get(["azureTranslatorKey", "azureTranslatorRegion"], function (res) {
+        const key = ((res && res.azureTranslatorKey) || "").trim();
+        const region = ((res && res.azureTranslatorRegion) || "").trim();
+        if (!key) {
+            showTranslation(tab, info.frameId, { source: text, error: "未配置 Azure Translator Key，请在扩展弹窗中填写" });
+            return;
+        }
+        const post = function (path) {
+            const headers = {
+                "Ocp-Apim-Subscription-Key": key,
+                "Content-Type": "application/json; charset=UTF-8",
+            };
+            // global 资源不需要区域头；区域资源必须带
+            if (region && region !== "global") headers["Ocp-Apim-Subscription-Region"] = region;
+            return fetch(
+                "https://api.cognitive.microsofttranslator.com/" + path + "?api-version=3.0&from=en&to=zh-Hans",
+                { method: "POST", headers: headers, body: JSON.stringify([{ Text: text }]) }
+            ).then(function (resp) {
+                return resp.json().catch(function () { return null; }).then(function (data) {
+                    if (!resp.ok) throw new Error((data && data.error && data.error.message) || "HTTP " + resp.status);
+                    return data;
+                });
+            });
+        };
+        const translateText = function () {
+            return post("translate").then(function (data) { return data[0].translations[0].text; });
+        };
+        const pending = SINGLE_WORD.test(text)
+            ? post("dictionary/lookup").then(function (data) {
+                const senses = data[0].translations
+                    .slice()
+                    .sort(function (a, b) { return b.confidence - a.confidence; })
+                    .map(function (t) { return t.displayTarget; })
+                    .filter(function (t, i, arr) { return arr.indexOf(t) === i; })
+                    .slice(0, 3);
+                return senses.length ? senses.join("；") : translateText();
+            })
+            : translateText();
+        pending
+            .then(function (result) {
+                showTranslation(tab, info.frameId, { source: text, translation: result });
+            })
+            .catch(function (e) {
+                console.error("[background] translate failed:", e);
+                showTranslation(tab, info.frameId, { source: text, error: "翻译失败: " + (e && e.message) });
+            });
+    });
+}
+
+// 结果交给选区所在 frame 的 content.js 浮层展示；chrome:// 等注入不了的页面退化为系统通知
+function showTranslation(tab, frameId, payload) {
+    const notify = function () {
+        chrome.notifications.create("translate-" + Date.now(), {
+            type: "basic",
+            iconUrl: chrome.runtime.getURL("img/WechatIMG750.jpg"),
+            title: payload.source,
+            message: payload.error || payload.translation,
+        });
+    };
+    if (!tab || tab.id === undefined || tab.id < 0) {
+        notify();
+        return;
+    }
+    const message = Object.assign({ type: "translate-result" }, payload);
+    chrome.tabs.sendMessage(tab.id, message, { frameId: frameId || 0 }, function () {
+        if (chrome.runtime.lastError) notify();
+    });
+}
 
 const STATUS_LABEL = {
     success: "成功",
