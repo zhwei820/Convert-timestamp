@@ -4,8 +4,10 @@ importScripts("utils.js", "sol-price-badge.js");
 
 let titleId = "convert";
 let translateMenuTitle = "翻译「%s」";
+let zhihuShotId = "zhihu-answer-screenshot";
 
-// 只注册一项：扩展有两项及以上时浏览器会把它们收进二级菜单。
+// 同一次右键只能出现一项：扩展有两项及以上时浏览器会把它们收进二级菜单。
+// 选区菜单只在 selection 上下文出现，截图菜单不含 selection，两者不会同时出现。
 // 点击时按选区内容决定转换时间戳还是翻译，标题只是提示，过期也不影响点击行为
 if (chrome.contextMenus && chrome.contextMenus.removeAll) {
     chrome.contextMenus.removeAll(function () {
@@ -13,6 +15,12 @@ if (chrome.contextMenus && chrome.contextMenus.removeAll) {
             title: translateMenuTitle,
             id: titleId,
             contexts: ["selection"],
+        });
+        chrome.contextMenus.create({
+            title: "截图这条回答",
+            id: zhihuShotId,
+            contexts: ["page", "link", "image"],
+            documentUrlPatterns: ["*://www.zhihu.com/*"],
         });
     });
 } else {
@@ -31,6 +39,10 @@ function convertSelection(text, callback) {
 
 if (chrome.contextMenus && chrome.contextMenus.onClicked) {
     chrome.contextMenus.onClicked.addListener(function (info, tab) {
+        if (info.menuItemId === zhihuShotId) {
+            captureZhihuAnswer(tab);
+            return;
+        }
         if (info.menuItemId !== titleId) return;
         convertSelection(info.selectionText, function (convertStr) {
             if (convertStr === null) {
@@ -77,6 +89,73 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         console.error("[background] context menu update threw:", e);
     }
 });
+
+// captureVisibleTab 只能截视口。captureBeyondViewport 在有界面的浏览器里不重绘视口外区域，
+// 截出来是当前视口的重复平铺；所以先用设备模拟把视口拉高到答案高度，让整条回答落在视口内再截
+function captureZhihuAnswer(tab) {
+    if (!tab || tab.id === undefined || tab.id < 0) return;
+    const target = { tabId: tab.id };
+    const send = function (msg) {
+        return chrome.tabs.sendMessage(tab.id, msg, { frameId: 0 }).then(function (res) {
+            if (res && res.error) throw new Error(res.error);
+            return res;
+        });
+    };
+    const cdp = function (method, params) {
+        return chrome.debugger.sendCommand(target, method, params || {});
+    };
+    let attached = false;
+    let prep = null;
+    chrome.tabs.sendMessage(tab.id, { type: "zhihu-shot-prepare" }, { frameId: 0 })
+        .catch(function () {
+            throw new Error("页面脚本未就绪，请刷新知乎页面后重试");
+        })
+        .then(function (res) {
+            if (res.error) throw new Error(res.error);
+            prep = res;
+            return chrome.debugger.attach(target, "1.3");
+        })
+        .then(function () {
+            attached = true;
+            return cdp("Emulation.setDeviceMetricsOverride", {
+                width: prep.width,
+                height: Math.max(prep.height, 1),
+                deviceScaleFactor: 0,
+                mobile: false,
+            });
+        })
+        .then(function () {
+            return send({ type: "zhihu-shot-measure" });
+        })
+        .then(function (rect) {
+            rect.scale = Math.min(1, ZHIHU_SHOT_MAX_DEVICE_PX / (rect.height * prep.dpr));
+            return cdp("Page.captureScreenshot", { format: "png", clip: rect });
+        })
+        .then(function (res) {
+            return { type: "zhihu-shot-result", dataUrl: "data:image/png;base64," + res.data, name: prep.name };
+        })
+        .catch(function (e) {
+            console.error("[background] zhihu screenshot failed:", e);
+            return { type: "zhihu-shot-result", error: "截图失败: " + (e && e.message) };
+        })
+        .then(function (result) {
+            const cleanup = attached
+                ? cdp("Emulation.clearDeviceMetricsOverride")
+                    .catch(function () {})
+                    .then(function () { return chrome.debugger.detach(target); })
+                    .catch(function () {})
+                : Promise.resolve();
+            return cleanup.then(function () {
+                return chrome.tabs.sendMessage(tab.id, result, { frameId: 0 });
+            });
+        })
+        .catch(function (e) {
+            console.warn("[background] zhihu screenshot result not delivered:", e);
+        });
+}
+
+// GPU 纹理上限约 16384 设备像素，超出时截图下半截空白或重复
+const ZHIHU_SHOT_MAX_DEVICE_PX = 16000;
 
 const DEFAULT_TRANSLATOR_REGION = "eastus";
 const DEFAULT_SPEECH_REGION = "eastus";
