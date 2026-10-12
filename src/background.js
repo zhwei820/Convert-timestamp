@@ -120,7 +120,7 @@ function captureZhihuAnswer(tab) {
             return cdp("Emulation.setDeviceMetricsOverride", {
                 width: prep.width,
                 height: Math.max(prep.height, 1),
-                deviceScaleFactor: 0,
+                deviceScaleFactor: ZHIHU_SHOT_DPR,
                 mobile: false,
             });
         })
@@ -128,7 +128,7 @@ function captureZhihuAnswer(tab) {
             return send({ type: "zhihu-shot-measure" });
         })
         .then(function (rect) {
-            rect.scale = Math.min(1, ZHIHU_SHOT_MAX_DEVICE_PX / (rect.height * prep.dpr));
+            rect.scale = Math.min(1, ZHIHU_SHOT_MAX_DEVICE_PX / (rect.height * ZHIHU_SHOT_DPR));
             return cdp("Page.captureScreenshot", { format: "png", clip: rect });
         })
         .then(function (res) {
@@ -156,6 +156,8 @@ function captureZhihuAnswer(tab) {
 
 // GPU 纹理上限约 16384 设备像素，超出时截图下半截空白或重复
 const ZHIHU_SHOT_MAX_DEVICE_PX = 16000;
+// 430 CSS px 宽 × 3 ≈ 1290 px，与主流手机屏宽一致
+const ZHIHU_SHOT_DPR = 3;
 
 const DEFAULT_TRANSLATOR_REGION = "eastus";
 const DEFAULT_SPEECH_REGION = "eastus";

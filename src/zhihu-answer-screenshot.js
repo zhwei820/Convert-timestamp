@@ -90,6 +90,46 @@
         }
     }
 
+    const SHARE_ATTR = "data-zhihu-share-shot";
+    const SHARE_CSS = `
+        [${SHARE_ATTR}] {
+            width: 430px !important; max-width: 430px !important; box-sizing: border-box !important;
+            padding: 20px 18px !important; margin: 0 !important; background: #fff !important;
+        }
+        [${SHARE_ATTR}] .RichText, [${SHARE_ATTR}] .ztext { font-size: 19px !important; line-height: 1.8 !important; }
+        [${SHARE_ATTR}] .RichText p { margin: 0 0 0.9em !important; }
+        [${SHARE_ATTR}] .RichText img { max-width: 100% !important; height: auto !important; }
+        [${SHARE_ATTR}] .AuthorInfo-name { font-size: 17px !important; }
+        [${SHARE_ATTR}] .ContentItem-title { font-size: 21px !important; line-height: 1.5 !important; }
+        [${SHARE_ATTR}] .ContentItem-actions, [${SHARE_ATTR}] .FollowButton,
+        [${SHARE_ATTR}] .ContentItem-expandButton, [${SHARE_ATTR}] .Reward { display: none !important; }
+        [${SHARE_ATTR}] .__zhihu_shot_question__ {
+            font: 600 22px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+            color: #121212; margin: 0 0 14px; padding-bottom: 12px; border-bottom: 1px solid #ebebeb;
+        }
+    `;
+
+    // 窄版面 + 大字号，导出图在手机上不用放大就能读
+    function applyShareLayout(found) {
+        const style = document.createElement("style");
+        style.textContent = SHARE_CSS;
+        document.head.appendChild(style);
+        found.box.setAttribute(SHARE_ATTR, "");
+        restoreFns.push(() => {
+            style.remove();
+            found.box.removeAttribute(SHARE_ATTR);
+        });
+        // 详情页的问题标题不在答案卡片里，分享出去没有上下文，临时补一个
+        const question = document.querySelector(".QuestionHeader-title");
+        if (question && !found.item.querySelector(".ContentItem-title")) {
+            const h = document.createElement("div");
+            h.className = "__zhihu_shot_question__";
+            h.textContent = question.textContent.trim();
+            found.box.prepend(h);
+            restoreFns.push(() => h.remove());
+        }
+    }
+
     function restore() {
         restoreFns.reverse().forEach((fn) => fn());
         restoreFns = [];
@@ -107,12 +147,12 @@
             return { error: "请在某条回答上右键再截图" };
         }
         await expand(found.item);
-        await loadImages(found.box);
         current = { box: found.box, scrollX: window.scrollX, scrollY: window.scrollY };
+        applyShareLayout(found);
+        await loadImages(found.box);
         return {
             width: window.innerWidth,
             height: Math.ceil(found.box.getBoundingClientRect().height),
-            dpr: window.devicePixelRatio || 1,
             name: fileName(found.item),
         };
     }
