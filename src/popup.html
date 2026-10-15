@@ -117,6 +117,12 @@
         <input type="password" id="azureSpeechKey" placeholder="Ocp-Apim-Subscription-Key" />
         <input type="text" id="azureSpeechRegion" placeholder="区域，默认 eastus" />
       </div>
+      <div class="input-group" style="margin-top: 4px; flex-direction: row; align-items: center; gap: 6px;">
+        <span id="vaultStatus" style="flex: 1; font-size: 13px; color: #333;">🔐 密码库</span>
+        <button id="vaultTouchId" type="button" hidden>Touch ID 解锁</button>
+        <button id="vaultLock" type="button" hidden>锁定</button>
+        <button id="vaultOpen" type="button">打开</button>
+      </div>
       <div class="input-group" style="margin-top: 4px;">
         <button id="openDevtoolsPanel" type="button">🛠 打开「请求复制」面板</button>
         <span id="devtoolsHint"></span>

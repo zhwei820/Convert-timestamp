@@ -35,6 +35,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   setupDevtoolsPanelShortcut();
+  setupVaultShortcut();
 
   // Set focus to input field and select content when popup opens
 
@@ -268,6 +269,49 @@ function setupDevtoolsPanelShortcut() {
       hint.style.color = "#666";
     }, 1500);
   };
+}
+
+// 系统认证框弹出时 popup 会失焦关闭，解锁由 background 继续完成
+function setupVaultShortcut() {
+  const statusEl = document.getElementById("vaultStatus");
+  const touchIdBtn = document.getElementById("vaultTouchId");
+  const lockBtn = document.getElementById("vaultLock");
+
+  function send(msg) {
+    return new Promise(function (resolve) {
+      chrome.runtime.sendMessage(msg, function (resp) {
+        resolve(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : resp || {});
+      });
+    });
+  }
+
+  function render() {
+    send({ type: "vault-status" }).then(function (s) {
+      if (s.error || !s.hasToken) {
+        statusEl.textContent = "🔐 密码库" + (s.hasToken ? "：" + s.error : "：未配置");
+        touchIdBtn.hidden = lockBtn.hidden = true;
+        return;
+      }
+      statusEl.textContent = s.unlocked ? "🔓 密码库已解锁" : "🔒 密码库已锁定";
+      touchIdBtn.hidden = s.unlocked || !s.touchId || !s.exists;
+      lockBtn.hidden = !s.unlocked;
+    });
+  }
+
+  document.getElementById("vaultOpen").onclick = function () {
+    send({ type: "vault-open" });
+  };
+  lockBtn.onclick = function () {
+    send({ type: "vault-lock" }).then(render);
+  };
+  touchIdBtn.onclick = function () {
+    statusEl.textContent = "等待认证…";
+    send({ type: "vault-unlock-touchid" }).then(function (r) {
+      if (r.error) statusEl.textContent = "🔒 " + r.error;
+      else render();
+    });
+  };
+  render();
 }
 
 function focusAndSelect() {

@@ -12,5 +12,9 @@ Chrome 扩展商店地址：[时间戳转换](https://chrome.google.com/webstore
 - **SOL 实时价格徽章**：扩展图标上常驻显示 Solana 最新价，涨绿跌红，悬停看 24h 涨跌 / 高低点 / 更新时间。每分钟刷新一次（Chrome MV3 定时器下限），数据源 Binance，失败自动回落 CoinGecko；两个都拉不到时把上一次的价格灰掉继续显示。**需要把扩展图钉在工具栏上才看得见**
 - **DevTools 请求复制**：DevTools 里多出一个「请求复制」面板，选中请求即可把「完整链接 + Query 参数 + 请求体 + 响应体」拼成 Markdown 或 JSON 一次性复制（支持 ⌘/Ctrl 多选、URL 过滤、仅看 XHR/Fetch；带上请求头时 Cookie / Authorization 等自动打码）
 
+- **密码库 + 自动填充**：密码在扩展里用 AES-GCM 加密后存到本机 `cc-ds.py` 的 `/vault`（`~/.cc-ds/vault.json`，服务器只见密文，每次写入在 `~/.cc-ds/backups/` 留旧版本）。密码框上点 🔑 填充，登录后提示保存 / 更新；跨域 iframe 不填充。启用步骤：
+  1. `python3 ~/GitAIMessage/cc-ds.py`，在弹窗点「打开」密码库，填入 `~/.cc-ds/vault-token` 里的 Token，设置主密码
+  2. Touch ID：`native/install.sh <扩展ID>` 后在密码库「设置」里启用；重新编译后钥匙串会再问一次授权，选「始终允许」
+
 源码在 `src` 文件夹中，`img` 文件夹存放部分截图。
 

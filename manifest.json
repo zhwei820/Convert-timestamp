@@ -14,13 +14,17 @@
     "alarms",
     "activeTab",
     "scripting",
-    "debugger"
+    "debugger",
+    "nativeMessaging",
+    "idle"
   ],
   "host_permissions": [
     "https://api.binance.com/*",
     "https://api.coingecko.com/*",
     "https://api.cognitive.microsofttranslator.com/*",
-    "https://*.tts.speech.microsoft.com/*"
+    "https://*.tts.speech.microsoft.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
   ],
   "content_scripts": [
     {
@@ -96,6 +100,16 @@
       ],
       "run_at": "document_idle",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "*://*/*"
+      ],
+      "js": [
+        "src/vault-autofill.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
     },
     {
       "matches": [

@@ -1,6 +1,6 @@
 console.log("[background] service worker booting");
 
-importScripts("utils.js", "sol-price-badge.js");
+importScripts("utils.js", "sol-price-badge.js", "vault-background.js");
 
 let titleId = "convert";
 let translateMenuTitle = "翻译「%s」";
@@ -56,6 +56,8 @@ if (chrome.contextMenus && chrome.contextMenus.onClicked) {
 }
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+    // 密码库消息带明文密码，由 vault-background.js 处理，不能进日志
+    if (isVaultMessage(message)) return;
     console.log("[background] onMessage received:", message);
     if (message && typeof message === "object" && message.type === "translate-tts") {
         synthesizeSpeech(message.text, sendResponse);
