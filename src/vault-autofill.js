@@ -244,20 +244,26 @@
         });
     }
 
-    document.addEventListener("focusin", function (e) {
-        const target = e.target;
-        if (!loginFields(target) || !isVisible(target)) return;
+    // 只缓存「已启用」：页面打开后才去配置密码库时，不刷新页面也能出图标
+    function maybeShow(target) {
+        if (target === anchor || !loginFields(target) || !isVisible(target)) return;
         const show = function () {
             if (enabled && document.activeElement === target) showIcon(target);
         };
-        if (enabled === null) {
-            send({ type: "vault-af-enabled" }).then(function (resp) {
-                enabled = !!resp.enabled;
-                show();
-            });
-        } else {
+        if (enabled) {
             show();
+            return;
         }
+        send({ type: "vault-af-enabled" }).then(function (resp) {
+            enabled = !!resp.enabled;
+            show();
+        });
+    }
+
+    document.addEventListener("focusin", function (e) { maybeShow(e.target); }, true);
+    // 页面自动聚焦发生在本脚本注入之前，收不到 focusin；点击已聚焦的输入框时补上
+    document.addEventListener("pointerdown", function (e) {
+        if (e.target === document.activeElement) maybeShow(e.target);
     }, true);
 
     document.addEventListener("focusout", function (e) {
@@ -375,4 +381,5 @@
     }
 
     if (window === window.top) checkPending();
+    if (document.activeElement) maybeShow(document.activeElement);
 })();
