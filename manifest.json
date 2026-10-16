@@ -15,8 +15,7 @@
     "activeTab",
     "scripting",
     "debugger",
-    "nativeMessaging",
-    "idle"
+    "nativeMessaging"
   ],
   "host_permissions": [
     "https://api.binance.com/*",
