@@ -5,7 +5,8 @@
 const VAULT_NATIVE_HOST = "com.bit.timestamp_vault";
 const VAULT_DEFAULT_SERVER = "http://127.0.0.1:8000";
 const VAULT_PBKDF2_ITERATIONS = 600000;
-const VAULT_DEFAULT_AUTOLOCK_MIN = 15;
+const VAULT_DEFAULT_AUTOLOCK_MIN = 7 * 24 * 60;
+const VAULT_MAX_AUTOLOCK_MIN = 7 * 24 * 60;
 const VAULT_PENDING_TTL_MS = 3 * 60 * 1000;
 const VAULT_AUTOLOCK_ALARM = "vault-autolock";
 
@@ -402,7 +403,7 @@ const vaultPageHandlers = {
         return run;
     },
     "vault-set-autolock": async function (msg) {
-        const minutes = Math.max(1, Math.min(480, parseInt(msg.minutes, 10) || VAULT_DEFAULT_AUTOLOCK_MIN));
+        const minutes = Math.max(1, Math.min(VAULT_MAX_AUTOLOCK_MIN, parseInt(msg.minutes, 10) || VAULT_DEFAULT_AUTOLOCK_MIN));
         await chrome.storage.local.set({ vaultAutoLockMin: minutes });
         return { minutes: minutes };
     },
