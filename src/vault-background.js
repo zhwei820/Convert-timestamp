@@ -564,6 +564,12 @@ chrome.alarms.onAlarm.addListener(async function (alarm) {
     if (Date.now() - (r.vaultLastUsed || 0) > s.autoLockMin * 60 * 1000) await vaultLock();
 });
 
+if (chrome.idle && chrome.idle.onStateChanged) {
+    chrome.idle.onStateChanged.addListener(function (state) {
+        if (state === "locked") vaultLock();
+    });
+}
+
 chrome.tabs.onRemoved.addListener(function (tabId) {
     vaultSetPending(tabId, null);
 });

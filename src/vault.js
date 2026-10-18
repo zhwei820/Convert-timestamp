@@ -9,6 +9,8 @@
     let status = null;
     let entries = [];
     let editingId = null;
+    // 每次锁定只自动弹一次 Touch ID：取消后不再追着弹；手动点「锁定」的不弹
+    let autoTouchIdArmed = true;
 
     function send(msg) {
         return new Promise(function (resolve, reject) {
@@ -66,11 +68,23 @@
         if (!status.unlocked) {
             $("unlockTouchId").hidden = !status.touchId;
             showView("viewUnlock");
+            maybeAutoTouchId();
             return;
         }
+        autoTouchIdArmed = true;
         showView("viewMain");
         renderSettings();
         await loadEntries();
+    }
+
+    // 页面在后台或屏幕已锁时不弹框，等切回来（focus）/ 屏幕解锁（idle active）再弹
+    function maybeAutoTouchId() {
+        if (!autoTouchIdArmed || !status || !status.touchId || $("viewUnlock").hidden || !document.hasFocus()) return;
+        chrome.idle.queryState(60, function (state) {
+            if (state === "locked" || !autoTouchIdArmed) return;
+            autoTouchIdArmed = false;
+            $("unlockTouchId").click();
+        });
     }
 
     async function loadEntries() {
@@ -246,6 +260,7 @@
     $("search").addEventListener("input", renderList);
     $("addBtn").addEventListener("click", function () { openEditor(null); });
     $("lockBtn").addEventListener("click", function () {
+        autoTouchIdArmed = false;
         send({ type: "vault-lock" }).then(refresh);
     });
     $("settingsBtn").addEventListener("click", function () {
@@ -323,6 +338,11 @@
     // 自动锁定 / 别处解锁时同步界面
     chrome.storage.onChanged.addListener(function (changes, area) {
         if (area === "session" && changes.vaultKey) refresh().catch(function () {});
+    });
+
+    window.addEventListener("focus", maybeAutoTouchId);
+    chrome.idle.onStateChanged.addListener(function (state) {
+        if (state === "active") maybeAutoTouchId();
     });
 
     refresh().catch(function (e) {
