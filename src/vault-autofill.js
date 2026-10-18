@@ -186,13 +186,11 @@
             }
             if (resp.locked) {
                 box.appendChild(el("div", "msg", "🔒 密码库已锁定"));
+                if (resp.unlockError) box.appendChild(el("div", "msg err", resp.unlockError));
                 const row = el("div", "row");
                 if (resp.touchId) {
                     const b = el("button", "btn", "Touch ID 解锁");
-                    onTrustedClick(b, function () {
-                        b.textContent = "等待认证…";
-                        send({ type: "vault-af-unlock" }).then(renderQueryResult);
-                    });
+                    onTrustedClick(b, touchIdUnlock);
                     row.appendChild(b);
                 }
                 openVaultButton(row);
@@ -216,9 +214,27 @@
         });
     }
 
+    // 失败（取消 / 未启用等）后重新查询，退回带错误提示的锁定菜单
+    function touchIdUnlock() {
+        renderMenu(function (box) { box.appendChild(el("div", "msg", "等待 Touch ID 认证…")); });
+        send({ type: "vault-af-unlock" }).then(function (resp) {
+            if (!resp.error) {
+                renderQueryResult(resp);
+                return;
+            }
+            send({ type: "vault-af-query" }).then(function (q) {
+                renderQueryResult(Object.assign(q, { unlockError: resp.error }));
+            });
+        });
+    }
+
+    // 点钥匙图标是用户主动操作，锁定且启用了 Touch ID 就直接弹指纹
     function openMenu() {
         renderMenu(function (box) { box.appendChild(el("div", "msg", "读取密码库…")); });
-        send({ type: "vault-af-query" }).then(renderQueryResult);
+        send({ type: "vault-af-query" }).then(function (resp) {
+            if (resp.locked && resp.touchId) touchIdUnlock();
+            else renderQueryResult(resp);
+        });
     }
 
     // 走原型上的 setter：React 等框架拦截了实例上的 value 属性，直接赋值它们感知不到

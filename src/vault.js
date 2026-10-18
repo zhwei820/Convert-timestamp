@@ -67,6 +67,7 @@
         }
         if (!status.unlocked) {
             $("unlockTouchId").hidden = !status.touchId;
+            $("touchIdOffHint").hidden = !!status.touchId;
             showView("viewUnlock");
             maybeAutoTouchId();
             return;
