@@ -81,11 +81,13 @@
     // 页面在后台或屏幕已锁时不弹框，等切回来（focus）/ 屏幕解锁（idle active）再弹
     function maybeAutoTouchId() {
         if (!autoTouchIdArmed || !status || !status.touchId || $("viewUnlock").hidden || !document.hasFocus()) return;
-        chrome.idle.queryState(60, function (state) {
+        function prompt(state) {
             if (state === "locked" || !autoTouchIdArmed) return;
             autoTouchIdArmed = false;
             $("unlockTouchId").click();
-        });
+        }
+        if (chrome.idle) chrome.idle.queryState(60, prompt);
+        else prompt("active");
     }
 
     async function loadEntries() {
@@ -342,9 +344,11 @@
     });
 
     window.addEventListener("focus", maybeAutoTouchId);
-    chrome.idle.onStateChanged.addListener(function (state) {
-        if (state === "active") maybeAutoTouchId();
-    });
+    if (chrome.idle && chrome.idle.onStateChanged) {
+        chrome.idle.onStateChanged.addListener(function (state) {
+            if (state === "active") maybeAutoTouchId();
+        });
+    }
 
     refresh().catch(function (e) {
         $("cfgError").textContent = e.message;
