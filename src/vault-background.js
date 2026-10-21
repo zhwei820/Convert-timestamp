@@ -234,6 +234,20 @@ function vaultEntryMatches(entry, origin) {
     return page.hostname === host || page.hostname.endsWith("." + host);
 }
 
+// 粗略的可注册域：组织域名登录后常跳到租户子域，保存提示要能跟过去，但不能跟到别的网站
+function vaultSiteOf(origin) {
+    const host = new URL(origin).hostname;
+    if (/^[\d.]+$/.test(host) || host.indexOf(".") < 0) return host;
+    const labels = host.split(".");
+    const n = labels.length >= 3 && labels[labels.length - 1].length === 2 &&
+        /^(com|net|org|gov|edu|co|ac)$/.test(labels[labels.length - 2]) ? 3 : 2;
+    return labels.slice(-n).join(".");
+}
+
+function vaultSameSite(a, b) {
+    return new URL(a).protocol === new URL(b).protocol && vaultSiteOf(a) === vaultSiteOf(b);
+}
+
 // 用浏览器给出的 sender 判定来源，不信 content script 自报。
 // 只允许顶层 frame 或与顶层同源的 frame，跨域 iframe 一律拒绝
 function vaultFrameOrigin(sender) {
@@ -517,7 +531,7 @@ const vaultContentHandlers = {
     "vault-af-pending": async function (msg, origin, sender) {
         if (sender.frameId !== 0) return { pending: null };
         const p = await vaultGetPending(sender.tab.id);
-        if (!p || p.origin !== origin) return { pending: null };
+        if (!p || !vaultSameSite(p.origin, origin)) return { pending: null };
         const s = await vaultSettings();
         return {
             pending: { username: p.username, fields: p.fields || {}, kind: p.kind },
@@ -527,7 +541,7 @@ const vaultContentHandlers = {
     },
     "vault-af-resolve": async function (msg, origin, sender) {
         const p = await vaultGetPending(sender.tab.id);
-        if (!p || p.origin !== origin) return {};
+        if (!p || !vaultSameSite(p.origin, origin)) return {};
         if (msg.action !== "save") {
             await vaultSetPending(sender.tab.id, null);
             return {};
