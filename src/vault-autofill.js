@@ -99,7 +99,10 @@
         if (USERNAME_TYPES.indexOf(inputType(el)) < 0) return null;
         const pws = visiblePasswords(scopeOf(el));
         const pw = pws.find(function (p) { return el.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_FOLLOWING; });
-        if (pw && usernameBefore(pw) === el) return { user: el, pw: pw };
+        const user = pw && usernameBefore(pw);
+        if (user === el) return { user: el, pw: pw };
+        // 紧挨账号框上方、带 id / name 的框（如组织域名）也出图标，回填由 fillExtraFields 按 id / name 完成
+        if (user && fieldKey(el) && usernameBefore(user) === el) return { user: user, pw: pw };
         // 两步登录的第一步（只有账号框）
         const ac = (el.getAttribute("autocomplete") || "").toLowerCase();
         if (!pws.length && (/username|email/.test(ac) || USERNAME_HINT.test((el.name || "") + " " + (el.id || "")))) {
