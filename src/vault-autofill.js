@@ -8,6 +8,7 @@
 
     const USERNAME_TYPES = ["", "text", "email", "tel"];
     const USERNAME_HINT = /user|login|email|account|phone|mobile|账号|帐号|用户/i;
+    const EXTRA_HINT = /domain|org|company|tenant|workspace|corp|企业|组织|租户|域/i;
     const LOGIN_BUTTON = /log\s*in|sign\s*in|submit|continue|next|登录|登入|确定|继续|下一步/i;
 
     let enabled = null;
@@ -17,6 +18,8 @@
     let menuEl = null;
     let anchor = null;
     let lastCapture = { key: "", at: 0 };
+    // 组织域名等框常在单独的 form 或前一步 SPA 页面里，提交密码时可能已不在 DOM 中
+    const rememberedExtra = {};
 
     function send(msg) {
         return new Promise(function (resolve) {
@@ -79,10 +82,23 @@
         return out;
     }
 
-    function fillExtraFields(scopeEl, fields) {
+    function isExtraField(el) {
+        return el instanceof HTMLInputElement && !!fieldKey(el) && isTextInput(el) &&
+            EXTRA_HINT.test(el.id + " " + el.name + " " + (el.getAttribute("placeholder") || ""));
+    }
+
+    function documentExtraFields() {
+        const out = {};
+        Array.prototype.forEach.call(document.querySelectorAll("input"), function (el) {
+            if (isExtraField(el) && el.value.trim()) out[fieldKey(el)] = el.value.trim();
+        });
+        return out;
+    }
+
+    function fillExtraFields(fields) {
         const keys = Object.keys(fields || {});
         if (!keys.length) return;
-        Array.prototype.forEach.call(scopeOf(scopeEl).querySelectorAll("input"), function (el) {
+        Array.prototype.forEach.call(document.querySelectorAll("input"), function (el) {
             const key = fieldKey(el);
             if (key && keys.indexOf(key) >= 0 && isTextInput(el) && el.value !== fields[key]) setValue(el, fields[key]);
         });
@@ -107,6 +123,10 @@
         const ac = (el.getAttribute("autocomplete") || "").toLowerCase();
         if (!pws.length && (/username|email/.test(ac) || USERNAME_HINT.test((el.name || "") + " " + (el.id || "")))) {
             return { user: el, pw: null };
+        }
+        if (isExtraField(el)) {
+            const anyPw = visiblePasswords(document)[0] || null;
+            return { user: anyPw && usernameBefore(anyPw), pw: anyPw };
         }
         return null;
     }
@@ -291,7 +311,7 @@
                 renderQueryResult(resp);
                 return;
             }
-            fillExtraFields(fields.pw || fields.user, resp.fields);
+            fillExtraFields(resp.fields);
             if (fields.user && resp.username && isVisible(fields.user)) setValue(fields.user, resp.username);
             if (fields.pw && isVisible(fields.pw)) setValue(fields.pw, resp.password);
             hideMenu();
@@ -351,7 +371,7 @@
         const pw = pws[pws.length - 1];
         const user = usernameBefore(pws[0]);
         const username = user ? user.value.trim() : "";
-        const extra = extraFieldsBefore(pws[0], user);
+        const extra = Object.assign({}, rememberedExtra, documentExtraFields(), extraFieldsBefore(pws[0], user));
         const key = username + "\n" + pw.value + "\n" + JSON.stringify(extra);
         if (key === lastCapture.key && Date.now() - lastCapture.at < 3000) return;
         lastCapture = { key: key, at: Date.now() };
@@ -360,6 +380,10 @@
             if (window === window.top) setTimeout(checkPending, 1500);
         });
     }
+
+    document.addEventListener("input", function (e) {
+        if (isExtraField(e.target) && e.target.value.trim()) rememberedExtra[fieldKey(e.target)] = e.target.value.trim();
+    }, true);
 
     document.addEventListener("submit", function (e) {
         if (e.target instanceof HTMLFormElement) capture(e.target);
