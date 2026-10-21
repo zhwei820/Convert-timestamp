@@ -54,9 +54,42 @@
         const inputs = Array.prototype.slice.call(scopeOf(pw).querySelectorAll("input"));
         for (let i = inputs.indexOf(pw) - 1; i >= 0; i--) {
             const el = inputs[i];
-            if (USERNAME_TYPES.indexOf(inputType(el)) >= 0 && isVisible(el) && !el.readOnly && !el.disabled) return el;
+            if (isTextInput(el)) return el;
         }
         return null;
+    }
+
+    function fieldKey(el) {
+        return el.id || el.name || "";
+    }
+
+    function isTextInput(el) {
+        return USERNAME_TYPES.indexOf(inputType(el)) >= 0 && isVisible(el) && !el.readOnly && !el.disabled;
+    }
+
+    // 账号框之前的其它文本框（如组织域名），按 id / name 存取，没有的无法回填所以不收
+    function extraFieldsBefore(pw, user) {
+        const out = {};
+        const inputs = Array.prototype.slice.call(scopeOf(pw).querySelectorAll("input"));
+        const end = inputs.indexOf(user || pw);
+        inputs.slice(0, end).forEach(function (el) {
+            const key = fieldKey(el);
+            if (key && isTextInput(el) && el.value.trim()) out[key] = el.value.trim();
+        });
+        return out;
+    }
+
+    function fillExtraFields(scopeEl, fields) {
+        const keys = Object.keys(fields || {});
+        if (!keys.length) return;
+        Array.prototype.forEach.call(scopeOf(scopeEl).querySelectorAll("input"), function (el) {
+            const key = fieldKey(el);
+            if (key && keys.indexOf(key) >= 0 && isTextInput(el) && el.value !== fields[key]) setValue(el, fields[key]);
+        });
+    }
+
+    function fieldsLabel(fields) {
+        return Object.keys(fields || {}).map(function (k) { return fields[k]; }).join(" / ");
     }
 
     // 返回 { user, pw }；不是登录相关输入框返回 null
@@ -207,7 +240,8 @@
             resp.entries.forEach(function (entry) {
                 const item = el("button", "item");
                 item.appendChild(el("div", "t", entry.title));
-                item.appendChild(el("div", "u", entry.username || "（无用户名）"));
+                const extra = fieldsLabel(entry.fields);
+                item.appendChild(el("div", "u", (extra ? extra + " · " : "") + (entry.username || "（无用户名）")));
                 onTrustedClick(item, function () { fill(entry.id); });
                 box.appendChild(item);
             });
@@ -254,6 +288,7 @@
                 renderQueryResult(resp);
                 return;
             }
+            fillExtraFields(fields.pw || fields.user, resp.fields);
             if (fields.user && resp.username && isVisible(fields.user)) setValue(fields.user, resp.username);
             if (fields.pw && isVisible(fields.pw)) setValue(fields.pw, resp.password);
             hideMenu();
@@ -313,10 +348,11 @@
         const pw = pws[pws.length - 1];
         const user = usernameBefore(pws[0]);
         const username = user ? user.value.trim() : "";
-        const key = username + "\n" + pw.value;
+        const extra = extraFieldsBefore(pws[0], user);
+        const key = username + "\n" + pw.value + "\n" + JSON.stringify(extra);
         if (key === lastCapture.key && Date.now() - lastCapture.at < 3000) return;
         lastCapture = { key: key, at: Date.now() };
-        send({ type: "vault-af-capture", username: username, password: pw.value }).then(function () {
+        send({ type: "vault-af-capture", username: username, password: pw.value, fields: extra }).then(function () {
             // SPA 登录不跳转页面，稍后在本页提示；跳转了则由新页面加载时提示
             if (window === window.top) setTimeout(checkPending, 1500);
         });
@@ -350,7 +386,8 @@
         if (barEl) barEl.remove();
         barEl = el("div", "bar");
         const p = resp.pending;
-        const who = p.username ? "「" + p.username + "」" : "";
+        const label = [fieldsLabel(p.fields), p.username].filter(Boolean).join(" / ");
+        const who = label ? "「" + label + "」" : "";
         const verb = p.kind === "update" ? "更新" : "保存";
         const msg = el("div", "msg", verb + who + "的密码到密码库？");
         barEl.appendChild(msg);

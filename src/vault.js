@@ -123,13 +123,30 @@
         return b;
     }
 
+    function fieldsText(fields) {
+        return Object.keys(fields || {}).map(function (k) { return k + "=" + fields[k]; }).join("\n");
+    }
+
+    function parseFields(text) {
+        const out = {};
+        text.split("\n").forEach(function (line) {
+            const i = line.indexOf("=");
+            if (i > 0) out[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+        });
+        return out;
+    }
+
+    function fieldValues(e) {
+        return Object.keys(e.fields || {}).map(function (k) { return e.fields[k]; });
+    }
+
     function renderList() {
         const q = $("search").value.trim().toLowerCase();
         const list = $("list");
         list.textContent = "";
         const shown = entries
             .filter(function (e) {
-                return !q || [e.title, e.url, e.username].some(function (v) { return (v || "").toLowerCase().indexOf(q) >= 0; });
+                return !q || [e.title, e.url, e.username].concat(fieldValues(e)).some(function (v) { return (v || "").toLowerCase().indexOf(q) >= 0; });
             })
             .sort(function (a, b) { return a.title.localeCompare(b.title); });
         $("empty").hidden = entries.length > 0;
@@ -143,7 +160,7 @@
             title.textContent = e.title;
             const sub = document.createElement("div");
             sub.className = "sub";
-            sub.textContent = (e.username || "（无用户名）") + " · " + hostOf(e.url);
+            sub.textContent = fieldValues(e).concat(e.username || "（无用户名）", hostOf(e.url)).join(" · ");
             info.appendChild(title);
             info.appendChild(sub);
             const actions = document.createElement("div");
@@ -179,6 +196,7 @@
         $("edPw").type = "password";
         $("edShow").textContent = "显示";
         $("edNotes").value = e ? e.notes : "";
+        $("edFields").value = e ? fieldsText(e.fields) : "";
         $("edError").textContent = "";
         $("editor").hidden = false;
         $("settings").hidden = true;
@@ -293,6 +311,7 @@
                 username: $("edUser").value,
                 password: $("edPw").value,
                 notes: $("edNotes").value,
+                fields: parseFields($("edFields").value),
             },
         });
         $("editor").hidden = true;

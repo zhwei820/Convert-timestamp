@@ -259,6 +259,30 @@ function vaultIsExtensionPage(sender) {
     return sender.id === chrome.runtime.id && !!sender.url && sender.url.indexOf(chrome.runtime.getURL("")) === 0;
 }
 
+// 登录页上除账号密码外的输入框（如组织域名），键为输入框 id / name / placeholder
+function vaultCleanFields(fields) {
+    const out = {};
+    Object.keys(fields || {}).forEach(function (k) {
+        const key = String(k).trim();
+        const value = String(fields[k] == null ? "" : fields[k]);
+        if (key && value) out[key] = value;
+    });
+    return out;
+}
+
+// 两边都有的键值一致才算同一账号；旧条目没记附加字段时不阻断匹配
+function vaultFieldsAgree(a, b) {
+    return Object.keys(a || {}).every(function (k) { return !(b && k in b) || a[k] === b[k]; });
+}
+
+function vaultFieldsCovered(captured, stored) {
+    return Object.keys(captured || {}).every(function (k) { return !!stored && stored[k] === captured[k]; });
+}
+
+function vaultSameAccount(e, origin, username, fields) {
+    return vaultEntryMatches(e, origin) && e.username === username && vaultFieldsAgree(fields, e.fields);
+}
+
 function vaultCleanEntry(e, existing) {
     const now = Date.now();
     return {
@@ -268,6 +292,7 @@ function vaultCleanEntry(e, existing) {
         username: String(e.username || ""),
         password: String(e.password || ""),
         notes: String(e.notes || ""),
+        fields: vaultCleanFields(e.fields),
         createdAt: (existing && existing.createdAt) || now,
         updatedAt: now,
     };
@@ -421,7 +446,7 @@ async function vaultAutofillQuery(origin) {
         locked: false,
         entries: loaded.entries
             .filter(function (e) { return vaultEntryMatches(e, origin); })
-            .map(function (e) { return { id: e.id, title: e.title, username: e.username }; }),
+            .map(function (e) { return { id: e.id, title: e.title, username: e.username, fields: e.fields || {} }; }),
     };
 }
 
@@ -444,12 +469,12 @@ async function vaultSetPending(tabId, pending) {
 }
 
 // 解锁时能判断是否已存过；锁定时先记下，保存时再判断
-async function vaultPendingKind(origin, username, password) {
+async function vaultPendingKind(origin, username, password, fields) {
     if (!(await vaultSessionKey())) return "unknown";
     const loaded = await vaultLoadEntries();
-    const same = loaded.entries.find(function (e) { return vaultEntryMatches(e, origin) && e.username === username; });
+    const same = loaded.entries.find(function (e) { return vaultSameAccount(e, origin, username, fields); });
     if (!same) return "new";
-    return same.password === password ? "same" : "update";
+    return same.password === password && vaultFieldsCovered(fields, same.fields) ? "same" : "update";
 }
 
 const vaultContentHandlers = {
@@ -468,7 +493,7 @@ const vaultContentHandlers = {
         const loaded = await vaultLoadEntries();
         const entry = loaded.entries.find(function (e) { return e.id === msg.id; });
         if (!entry || !vaultEntryMatches(entry, origin)) throw new Error("该条目不属于当前网站");
-        return { username: entry.username, password: entry.password };
+        return { username: entry.username, password: entry.password, fields: entry.fields || {} };
     },
     "vault-af-open": async function () {
         await chrome.tabs.create({ url: chrome.runtime.getURL("src/vault.html") });
@@ -477,15 +502,16 @@ const vaultContentHandlers = {
     "vault-af-capture": async function (msg, origin, sender) {
         const username = String(msg.username || "");
         const password = String(msg.password || "");
+        const fields = vaultCleanFields(msg.fields);
         if (!password) return {};
         let kind = "unknown";
         try {
-            kind = await vaultPendingKind(origin, username, password);
+            kind = await vaultPendingKind(origin, username, password, fields);
         } catch (e) {
             console.warn("[vault] capture: cannot compare with vault:", e.message);
         }
         if (kind === "same") return {};
-        await vaultSetPending(sender.tab.id, { origin: origin, username: username, password: password, kind: kind, at: Date.now() });
+        await vaultSetPending(sender.tab.id, { origin: origin, username: username, password: password, fields: fields, kind: kind, at: Date.now() });
         return {};
     },
     "vault-af-pending": async function (msg, origin, sender) {
@@ -494,7 +520,7 @@ const vaultContentHandlers = {
         if (!p || p.origin !== origin) return { pending: null };
         const s = await vaultSettings();
         return {
-            pending: { username: p.username, kind: p.kind },
+            pending: { username: p.username, fields: p.fields || {}, kind: p.kind },
             locked: !(await vaultSessionKey()),
             touchId: s.touchId,
         };
@@ -508,13 +534,15 @@ const vaultContentHandlers = {
         }
         if (!(await vaultSessionKey())) await vaultUnlockWithTouchId();
         const result = await vaultMutate(function (entries) {
-            const i = entries.findIndex(function (e) { return vaultEntryMatches(e, p.origin) && e.username === p.username; });
+            const fields = p.fields || {};
+            const i = entries.findIndex(function (e) { return vaultSameAccount(e, p.origin, p.username, fields); });
             if (i < 0) {
-                entries.push(vaultCleanEntry({ title: new URL(p.origin).hostname, url: p.origin, username: p.username, password: p.password }));
+                entries.push(vaultCleanEntry({ title: new URL(p.origin).hostname, url: p.origin, username: p.username, password: p.password, fields: fields }));
                 return { saved: "new" };
             }
-            if (entries[i].password === p.password) return { saved: "same" };
-            entries[i] = vaultCleanEntry(Object.assign({}, entries[i], { password: p.password }), entries[i]);
+            if (entries[i].password === p.password && vaultFieldsCovered(fields, entries[i].fields)) return { saved: "same" };
+            const merged = Object.assign({}, entries[i].fields, fields);
+            entries[i] = vaultCleanEntry(Object.assign({}, entries[i], { password: p.password, fields: merged }), entries[i]);
             return { saved: "update" };
         });
         await vaultSetPending(sender.tab.id, null);
