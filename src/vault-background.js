@@ -3,7 +3,7 @@
 // Touch ID 存的是 K，所以改主密码不影响 Touch ID。解锁后的 K 只放在 storage.session（仅扩展页面和 SW 可读，浏览器关闭即清）。
 
 const VAULT_NATIVE_HOST = "com.bit.timestamp_vault";
-const VAULT_DEFAULT_SERVER = "http://127.0.0.1:8000";
+const VAULT_DEFAULT_SERVER = "http://127.0.0.1:8888";
 const VAULT_PBKDF2_ITERATIONS = 600000;
 const VAULT_DEFAULT_AUTOLOCK_MIN = 7 * 24 * 60;
 const VAULT_MAX_AUTOLOCK_MIN = 7 * 24 * 60;
