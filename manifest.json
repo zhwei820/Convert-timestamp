@@ -113,6 +113,16 @@
     },
     {
       "matches": [
+        "http://192.168.5.97:8081/*"
+      ],
+      "js": [
+        "src/bot-auto-refresh.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
         "*://www.zhihu.com/*"
       ],
       "js": [
