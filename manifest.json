@@ -123,6 +123,16 @@
     },
     {
       "matches": [
+        "https://uhook-v2.matrixport.io/*"
+      ],
+      "js": [
+        "src/uhook-token.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
         "*://www.zhihu.com/*"
       ],
       "js": [

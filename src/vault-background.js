@@ -491,7 +491,21 @@ async function vaultPendingKind(origin, username, password, fields) {
     return same.password === password && vaultFieldsCovered(fields, same.fields) ? "same" : "update";
 }
 
+const VAULT_UHOOK_ORIGIN = "https://uhook-v2.matrixport.io";
+
 const vaultContentHandlers = {
+    "vault-uhook-token": async function (msg, origin) {
+        if (origin !== VAULT_UHOOK_ORIGIN) throw new Error("forbidden");
+        const s = await vaultSettings();
+        if (!s.token) throw new Error("未配置密码库服务器 Token");
+        const resp = await fetch(s.serverUrl + "/uhook/token", {
+            method: "POST",
+            headers: { "X-Vault-Token": s.token, "Content-Type": "application/json" },
+            body: JSON.stringify({ token: msg.token }),
+        });
+        if (!resp.ok) throw new Error("uhook token 上报失败 " + resp.status);
+        return {};
+    },
     // 没配置密码库就不在密码框上显示图标
     "vault-af-enabled": async function () {
         return { enabled: !!(await vaultSettings()).token };
