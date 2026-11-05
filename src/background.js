@@ -1,6 +1,6 @@
 console.log("[background] service worker booting");
 
-importScripts("utils.js", "sol-price-badge.js", "vault-background.js");
+importScripts("utils.js", "sol-price-badge.js", "vault-background.js", "uhook-daily-open.js");
 
 let titleId = "convert";
 let translateMenuTitle = "翻译「%s」";

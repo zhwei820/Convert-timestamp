@@ -494,7 +494,7 @@ async function vaultPendingKind(origin, username, password, fields) {
 const VAULT_UHOOK_ORIGIN = "https://uhook-v2.matrixport.io";
 
 const vaultContentHandlers = {
-    "vault-uhook-token": async function (msg, origin) {
+    "vault-uhook-token": async function (msg, origin, sender) {
         if (origin !== VAULT_UHOOK_ORIGIN) throw new Error("forbidden");
         const s = await vaultSettings();
         if (!s.token) throw new Error("未配置密码库服务器 Token");
@@ -504,6 +504,7 @@ const vaultContentHandlers = {
             body: JSON.stringify({ token: msg.token }),
         });
         if (!resp.ok) throw new Error("uhook token 上报失败 " + resp.status);
+        uhookDailyCloseIfOurs(sender);
         return {};
     },
     // 没配置密码库就不在密码框上显示图标
