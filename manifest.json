@@ -159,5 +159,13 @@
   "options_page": "src/popup.html",
   "background": {
     "service_worker": "src/background.js"
+  },
+  "sandbox": {
+    "pages": [
+      "src/html-sandbox.html"
+    ]
+  },
+  "content_security_policy": {
+    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; child-src 'self' https: blob: data:;"
   }
 }
