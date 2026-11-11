@@ -335,6 +335,63 @@ ${bodyHtml}
         return head.startsWith("<!doctype") || head.startsWith("<html") || /<[a-z!]/.test(head);
     }
 
+    function isRepoRelative(ref) {
+        return !!ref && !/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(ref.trim());
+    }
+
+    async function fetchText(url) {
+        const resp = await fetch(url, { credentials: "same-origin" });
+        if (!resp.ok) throw new Error(resp.status + " " + url);
+        return resp.text();
+    }
+
+    function absolutizeCssUrls(css, cssUrl) {
+        return css.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, function (m, q, ref) {
+            if (!isRepoRelative(ref)) return m;
+            return "url(" + q + new URL(ref, cssUrl).href + q + ")";
+        });
+    }
+
+    /**
+     * 渲染后的页面跑在 blob: URL 下，相对路径失效；raw 端点又以 text/plain + nosniff
+     * 返回 js/css，<base> 指过去也会被浏览器拒绝执行。所以 js/css 抓下来内联，
+     * 图片等其余资源交给 <base>。type=module 内部的相对 import 仍无法解析。
+     */
+    async function bundleHtml(html, fileUrl) {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const jobs = [];
+        doc.querySelectorAll("script[src]").forEach(function (el) {
+            const src = el.getAttribute("src");
+            if (!isRepoRelative(src)) return;
+            jobs.push(fetchText(new URL(src, fileUrl).href).then(function (code) {
+                el.removeAttribute("src");
+                el.textContent = code.replace(/<\/script/gi, "<\\/script");
+            }, function (e) {
+                console.warn("[text-preview-core] script inline failed:", e);
+            }));
+        });
+        doc.querySelectorAll('link[rel~="stylesheet"][href]').forEach(function (el) {
+            const href = el.getAttribute("href");
+            if (!isRepoRelative(href)) return;
+            const cssUrl = new URL(href, fileUrl).href;
+            jobs.push(fetchText(cssUrl).then(function (css) {
+                const style = doc.createElement("style");
+                if (el.media) style.media = el.media;
+                style.textContent = absolutizeCssUrls(css, cssUrl).replace(/<\/style/gi, "<\\/style");
+                el.replaceWith(style);
+            }, function (e) {
+                console.warn("[text-preview-core] stylesheet inline failed:", e);
+            }));
+        });
+        await Promise.all(jobs);
+        if (!doc.querySelector("base")) {
+            const base = doc.createElement("base");
+            base.href = new URL(".", fileUrl).href;
+            doc.head.insertBefore(base, doc.head.firstChild);
+        }
+        return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+    }
+
     /** blob: URL 可以绕开宿主页面的 CSP（内联 <script> 会被拦截） */
     function toBlobUrl(html) {
         return URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
@@ -357,6 +414,8 @@ ${bodyHtml}
         isMarkdownFile: isMarkdownFile,
         isHtmlFile: isHtmlFile,
         looksLikeHtml: looksLikeHtml,
+        fetchText: fetchText,
+        bundleHtml: bundleHtml,
         openInNewTab: openInNewTab,
         replaceCurrentPage: replaceCurrentPage,
     };
