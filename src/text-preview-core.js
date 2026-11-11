@@ -353,7 +353,7 @@ ${bodyHtml}
     }
 
     /**
-     * 渲染后的页面跑在 blob: URL 下，相对路径失效；raw 端点又以 text/plain + nosniff
+     * 渲染后的页面跑在扩展 sandbox 页里，相对路径失效；raw 端点又以 text/plain + nosniff
      * 返回 js/css，<base> 指过去也会被浏览器拒绝执行。所以 js/css 抓下来内联，
      * 图片等其余资源交给 <base>。type=module 内部的相对 import 仍无法解析。
      */
@@ -401,6 +401,12 @@ ${bodyHtml}
         window.open(toBlobUrl(html), "_blank");
     }
 
+    /** 需要执行脚本的 HTML 走扩展 sandbox 页，见 html-preview.js */
+    async function openInExtensionSandbox(html) {
+        const resp = await chrome.runtime.sendMessage({ type: "html-preview-open", html: html });
+        if (!resp || !resp.ok) throw new Error((resp && resp.error) || "打开预览页失败");
+    }
+
     function replaceCurrentPage(html) {
         location.replace(toBlobUrl(html));
     }
@@ -418,5 +424,6 @@ ${bodyHtml}
         bundleHtml: bundleHtml,
         openInNewTab: openInNewTab,
         replaceCurrentPage: replaceCurrentPage,
+        openInExtensionSandbox: openInExtensionSandbox,
     };
 })();

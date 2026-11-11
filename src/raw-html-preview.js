@@ -97,8 +97,7 @@
         btn.textContent = "加载中…";
         try {
             const html = await core.bundleHtml(await core.fetchText(rawUrl), rawUrl);
-            // assign 而非 replace：Back 能回到仓库页
-            location.assign(URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" })));
+            await core.openInExtensionSandbox(html);
         } catch (e) {
             console.warn("[raw-html-preview] blob render failed:", e);
             alert("渲染失败：" + (e && e.message ? e.message : e));
@@ -123,9 +122,7 @@
                     alert("未识别到 HTML 内容，无法预览。");
                     return;
                 }
-                // HTML 原样渲染；用 blob: 跳转以避开 GitLab/GitHub 的 CSP
-                // （document.write 会复用当前 origin，内联 <script> 会被拦截）
-                core.replaceCurrentPage(await core.bundleHtml(raw, location.href));
+                await core.openInExtensionSandbox(await core.bundleHtml(raw, location.href));
                 return;
             }
             core.replaceCurrentPage(core.buildPreviewDocument(raw, getFileName(), { markdown: true }));

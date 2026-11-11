@@ -55,9 +55,24 @@ if (chrome.contextMenus && chrome.contextMenus.onClicked) {
     });
 }
 
+function openHtmlPreview(html, sender, sendResponse) {
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    chrome.storage.session.set({ ["htmlPreview:" + id]: html }).then(function () {
+        return chrome.tabs.update(sender.tab.id, { url: chrome.runtime.getURL("src/html-preview.html#" + id) });
+    }).then(function () {
+        sendResponse({ ok: true });
+    }, function (e) {
+        sendResponse({ ok: false, error: String(e && e.message || e) });
+    });
+}
+
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     // 密码库消息带明文密码，由 vault-background.js 处理，不能进日志
     if (isVaultMessage(message)) return;
+    if (message && typeof message === "object" && message.type === "html-preview-open") {
+        openHtmlPreview(message.html, sender, sendResponse);
+        return true;
+    }
     console.log("[background] onMessage received:", message);
     if (message && typeof message === "object" && message.type === "translate-tts") {
         synthesizeSpeech(message.text, sendResponse);
