@@ -404,7 +404,9 @@ ${bodyHtml}
     /** 需要执行脚本的 HTML 走扩展 sandbox 页，见 html-preview.js */
     async function openInExtensionSandbox(html) {
         const resp = await chrome.runtime.sendMessage({ type: "html-preview-open", html: html });
-        if (!resp || !resp.ok) throw new Error((resp && resp.error) || "打开预览页失败");
+        // 无人响应时 sendMessage resolve 成 undefined：后台还是不认识该消息的旧版本
+        if (!resp) throw new Error("后台未响应，请在扩展管理页重新加载本扩展后刷新此页");
+        if (!resp.ok) throw new Error(resp.error || "打开预览页失败");
     }
 
     function replaceCurrentPage(html) {
