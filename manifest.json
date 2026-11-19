@@ -92,6 +92,16 @@
     },
     {
       "matches": [
+        "https://metabase.prod.rd2.matrixport.io/*"
+      ],
+      "js": [
+        "src/metabase-table-copy.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
         "*://*/*"
       ],
       "js": [
